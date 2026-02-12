@@ -18,6 +18,7 @@ public static class MauiAppBuilderExtensions
         {
             handlers.AddHandler<IWindow, WindowHandler>();
             handlers.AddHandler<IContentView, ContentPageHandler>();
+            handlers.AddHandler(typeof(Microsoft.Maui.Controls.NavigationPage), typeof(NavigationPageHandler));
             handlers.AddHandler<ILayout, LayoutHandler>();
             handlers.AddHandler<ILabel, LabelHandler>();
             handlers.AddHandler<IButton, ButtonHandler>();

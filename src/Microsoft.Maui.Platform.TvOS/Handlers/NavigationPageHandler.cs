@@ -1,0 +1,110 @@
+using CoreGraphics;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
+using Microsoft.Maui.Handlers;
+using UIKit;
+
+namespace Microsoft.Maui.Platform.TvOS.Handlers;
+
+/// <summary>
+/// Container view for NavigationPage that resizes the current page on layout.
+/// </summary>
+public class NavigationContainerView : TvOSContainerView
+{
+    public Action<CGRect>? OnLayoutAction { get; set; }
+
+    public override void LayoutSubviews()
+    {
+        base.LayoutSubviews();
+        OnLayoutAction?.Invoke(Bounds);
+    }
+}
+
+public partial class NavigationPageHandler : TvOSViewHandler<IStackNavigationView, NavigationContainerView>, IStackNavigation
+{
+    public static readonly IPropertyMapper<IStackNavigationView, NavigationPageHandler> Mapper =
+        new PropertyMapper<IStackNavigationView, NavigationPageHandler>(ViewMapper);
+
+    public static readonly CommandMapper<IStackNavigationView, NavigationPageHandler> CommandMapper =
+        new(ViewCommandMapper)
+        {
+            [nameof(IStackNavigation.RequestNavigation)] = RequestNavigationCommand
+        };
+
+    readonly List<IView> _navigationStack = new();
+    UIView? _currentPageView;
+
+    public NavigationPageHandler() : base(Mapper, CommandMapper)
+    {
+    }
+
+    static void RequestNavigationCommand(NavigationPageHandler handler, IStackNavigationView view, object? args)
+    {
+        if (args is NavigationRequest request)
+            handler.RequestNavigation(request);
+    }
+
+    protected override NavigationContainerView CreatePlatformView()
+    {
+        var view = new NavigationContainerView();
+        view.OnLayoutAction = OnContainerLayout;
+        return view;
+    }
+
+    protected override void ConnectHandler(NavigationContainerView platformView)
+    {
+        base.ConnectHandler(platformView);
+    }
+
+    void OnContainerLayout(CGRect bounds)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+            return;
+
+        if (_currentPageView != null)
+        {
+            _currentPageView.Frame = bounds;
+
+            var currentPage = _navigationStack.LastOrDefault();
+            if (currentPage != null)
+            {
+                currentPage.Measure((double)bounds.Width, (double)bounds.Height);
+                currentPage.Arrange(new Rect(0, 0, (double)bounds.Width, (double)bounds.Height));
+            }
+        }
+    }
+
+    public void RequestNavigation(NavigationRequest request)
+    {
+        _navigationStack.Clear();
+        _navigationStack.AddRange(request.NavigationStack);
+
+        var currentPage = _navigationStack.LastOrDefault();
+        ShowPage(currentPage);
+
+        ((IStackNavigationView)VirtualView).NavigationFinished(_navigationStack);
+    }
+
+    void ShowPage(IView? page)
+    {
+        if (page == null || MauiContext == null)
+            return;
+
+        if (_currentPageView != null)
+        {
+            _currentPageView.RemoveFromSuperview();
+            _currentPageView = null;
+        }
+
+        var platformView = page.ToTvOSPlatform(MauiContext);
+        platformView.Frame = PlatformView.Bounds;
+        platformView.AutoresizingMask = UIViewAutoresizing.FlexibleWidth | UIViewAutoresizing.FlexibleHeight;
+        PlatformView.AddSubview(platformView);
+        _currentPageView = platformView;
+    }
+
+    public void NavigationFinished(IReadOnlyList<IView> newStack)
+    {
+        // Called by the view when navigation is complete — no-op on handler side
+    }
+}

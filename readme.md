@@ -40,6 +40,7 @@ Both platforms share the same set of control handlers:
 | ContentPage | TvOSContainerView | MacOSContainerView |
 | ContentView | TvOSContainerView | MacOSContainerView |
 | BoxView | via ShapeView | via ShapeView |
+| NavigationPage | TvOSContainerView (stack) | MacOSContainerView (stack) |
 
 ### Infrastructure
 
@@ -69,7 +70,6 @@ Both platforms share the same set of control handlers:
 * IndicatorView
 * FlyoutPage
 * TabbedPage
-* NavigationPage
 
 ### Collections
 * CarouselView
@@ -86,7 +86,6 @@ Both platforms share the same set of control handlers:
 * XAML Compilation (currently C#-only pages work reliably)
 * Multi-window support
 * Modal page presentation
-* Navigation stack
 * Keyboard/focus management
 * Accessibility support
 * Font management (custom fonts, font families)

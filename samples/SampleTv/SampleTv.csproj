@@ -29,6 +29,9 @@
         <Compile Include="..\Sample\MainPage.cs">
             <Link>MainPage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\CollectionViewPage.cs">
+            <Link>CollectionViewPage.cs</Link>
+        </Compile>
         <Compile Include="..\Sample\Platforms\tvOS\Main.cs">
             <Link>Main.cs</Link>
         </Compile>
