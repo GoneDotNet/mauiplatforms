@@ -39,6 +39,9 @@
         <Compile Include="..\Sample\EssentialsPage.cs">
             <Link>EssentialsPage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\StoragePage.cs">
+            <Link>StoragePage.cs</Link>
+        </Compile>
         <Compile Include="..\Sample\BlazorPage.cs">
             <Link>BlazorPage.cs</Link>
         </Compile>

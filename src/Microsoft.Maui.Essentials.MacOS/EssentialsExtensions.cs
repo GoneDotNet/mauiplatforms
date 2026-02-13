@@ -16,6 +16,8 @@ public static class EssentialsExtensions
         SetStaticField(typeof(Battery), "defaultImplementation", new BatteryImplementation());
         SetStaticField(typeof(DeviceDisplay), "currentImplementation", new DeviceDisplayImplementation());
         SetStaticField(typeof(FileSystem), "currentImplementation", new FileSystemImplementation());
+        SetStaticField(typeof(Preferences), "defaultImplementation", new PreferencesImplementation());
+        SetStaticField(typeof(SecureStorage), "defaultImplementation", new SecureStorageImplementation());
     }
 
     static void SetStaticField(Type type, string fieldName, object value)

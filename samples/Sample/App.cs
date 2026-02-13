@@ -11,6 +11,7 @@ public class App : Microsoft.Maui.Controls.Application
         tabbedPage.Children.Add(new MainPage { Title = "Controls" });
         tabbedPage.Children.Add(new CollectionViewPage { Title = "Collection" });
         tabbedPage.Children.Add(new EssentialsPage { Title = "Essentials" });
+        tabbedPage.Children.Add(new StoragePage { Title = "Storage" });
         return new Window(tabbedPage);
     }
 }

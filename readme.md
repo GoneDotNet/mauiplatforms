@@ -14,8 +14,8 @@ Videos are attached in the repo
 src/
   Microsoft.Maui.Platform.TvOS/     # tvOS backend library (net10.0-tvos)
   Microsoft.Maui.Platform.MacOS/    # macOS AppKit backend library (net10.0-macos)
-  Microsoft.Maui.Essentials.TvOS/   # tvOS Essentials library (AppInfo, DeviceInfo)
-  Microsoft.Maui.Essentials.MacOS/  # macOS Essentials library (AppInfo, DeviceInfo)
+  Microsoft.Maui.Essentials.TvOS/   # tvOS Essentials library
+  Microsoft.Maui.Essentials.MacOS/  # macOS Essentials library
 samples/
   Sample/                           # Shared sample code (App.cs, MainPage.cs, Platforms/)
   SampleTv/                         # tvOS sample app (links files from Sample/)
@@ -119,7 +119,7 @@ Both platforms share the same set of control handlers:
 * ~~WebView~~ — macOS ✅ (WKWebView), tvOS ❌ (not supported by platform)
 * ~~BlazorWebView~~ — macOS ✅ (custom MacOSBlazorWebView control), tvOS ❌ (no WebView support)
 * App Icons (ideally via MAUI build tools / `MauiIcon`)
-* ~~Essentials (platform-specific API wrappers)~~ — AppInfo ✅, DeviceInfo ✅, Connectivity ✅, Battery ✅ (macOS only), DeviceDisplay ✅, FileSystem ✅ (see [Essentials](#essentials) below)
+* ~~Essentials (platform-specific API wrappers)~~ — AppInfo ✅, DeviceInfo ✅, Connectivity ✅, Battery ✅ (macOS only), DeviceDisplay ✅, FileSystem ✅, Preferences ✅, SecureStorage ✅ (see [Essentials](#essentials) below)
 * NuGet packaging
 * CI/CD pipeline
 
@@ -247,6 +247,8 @@ Platform-specific implementations of MAUI Essentials APIs for both tvOS and macO
 | Battery | ❌ | ✅ | Charge level, state, power source, change events (IOKit). Not available on tvOS. |
 | DeviceDisplay | ✅ | ✅ | Screen dimensions, density, orientation, rotation, refresh rate, keep screen on |
 | FileSystem | ✅ | ✅ | Cache directory, app data directory, app package file access |
+| Preferences | ✅ | ✅ | Key/value storage via NSUserDefaults |
+| SecureStorage | ✅ | ✅ | Encrypted key/value storage via Keychain |
 
 ### Usage
 
@@ -273,8 +275,6 @@ var platform = DeviceInfo.Platform;
 
 ### Essentials TODO
 * Clipboard
-* Preferences
-* SecureStorage
 * VersionTracking
 * MainThread
 
