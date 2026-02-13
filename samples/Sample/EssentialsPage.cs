@@ -3,6 +3,7 @@ using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Devices;
+using Microsoft.Maui.Media;
 using Microsoft.Maui.Networking;
 using Microsoft.Maui.Storage;
 #if MACAPP
@@ -92,6 +93,42 @@ public class EssentialsPage : ContentPage
         layout.Children.Add(CreateHeader("File System"));
         layout.Children.Add(CreateRow("Cache Dir", TryGet(() => FileSystem.CacheDirectory)));
         layout.Children.Add(CreateRow("App Data Dir", TryGet(() => FileSystem.AppDataDirectory)));
+
+        layout.Children.Add(CreateHeader("Text-to-Speech"));
+        var ttsEntry = new Entry { Placeholder = "Enter text to speak", TextColor = Colors.White, Text = "Hello from MAUI!" };
+        layout.Children.Add(ttsEntry);
+        var ttsBtn = new Button { Text = "Speak" };
+        ttsBtn.Clicked += async (s, e) =>
+        {
+            try
+            {
+                var text = ttsEntry.Text;
+                if (!string.IsNullOrEmpty(text))
+                    await TextToSpeech.SpeakAsync(text);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TTS error: {ex.Message}");
+            }
+        };
+        layout.Children.Add(ttsBtn);
+        var ttsLocalesBtn = new Button { Text = "List Voices" };
+        var ttsLocalesLabel = new Label { FontSize = 14, TextColor = Colors.White, Text = "" };
+        ttsLocalesBtn.Clicked += async (s, e) =>
+        {
+            try
+            {
+                var locales = await TextToSpeech.GetLocalesAsync();
+                var list = locales.Take(10).Select(l => $"{l.Name} ({l.Language})");
+                ttsLocalesLabel.Text = string.Join("\n", list) + (locales.Count() > 10 ? $"\n... +{locales.Count() - 10} more" : "");
+            }
+            catch (Exception ex)
+            {
+                ttsLocalesLabel.Text = $"Error: {ex.Message}";
+            }
+        };
+        layout.Children.Add(ttsLocalesBtn);
+        layout.Children.Add(ttsLocalesLabel);
 
         Content = new ScrollView { Content = layout };
     }

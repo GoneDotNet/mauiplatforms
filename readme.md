@@ -119,7 +119,7 @@ Both platforms share the same set of control handlers:
 * ~~WebView~~ — macOS ✅ (WKWebView), tvOS ❌ (not supported by platform)
 * ~~BlazorWebView~~ — macOS ✅ (custom MacOSBlazorWebView control), tvOS ❌ (no WebView support)
 * App Icons (ideally via MAUI build tools / `MauiIcon`)
-* ~~Essentials (platform-specific API wrappers)~~ — AppInfo ✅, DeviceInfo ✅, Connectivity ✅, Battery ✅ (macOS only), DeviceDisplay ✅, FileSystem ✅, Preferences ✅, SecureStorage ✅ (see [Essentials](#essentials) below)
+* ~~Essentials (platform-specific API wrappers)~~ — AppInfo ✅, DeviceInfo ✅, Connectivity ✅, Battery ✅ (macOS only), DeviceDisplay ✅, FileSystem ✅, Preferences ✅, SecureStorage ✅, FilePicker ✅ (macOS only), MediaPicker ✅ (macOS only), TextToSpeech ✅ (see [Essentials](#essentials) below)
 * NuGet packaging
 * CI/CD pipeline
 
@@ -249,6 +249,9 @@ Platform-specific implementations of MAUI Essentials APIs for both tvOS and macO
 | FileSystem | ✅ | ✅ | Cache directory, app data directory, app package file access |
 | Preferences | ✅ | ✅ | Key/value storage via NSUserDefaults |
 | SecureStorage | ✅ | ✅ | Encrypted key/value storage via Keychain |
+| FilePicker | ❌ | ✅ | Single/multiple file picking via NSOpenPanel. Not available on tvOS. |
+| MediaPicker | ❌ | ✅ | Photo/video picking via NSOpenPanel (no capture). Not available on tvOS. |
+| TextToSpeech | ✅ | ✅ | macOS: NSSpeechSynthesizer, tvOS: AVSpeechSynthesizer. GetLocalesAsync unavailable on tvOS (AOT). |
 
 ### Usage
 

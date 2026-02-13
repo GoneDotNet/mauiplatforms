@@ -2,6 +2,9 @@ using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Storage;
+#if MACAPP
+using Microsoft.Maui.Media;
+#endif
 
 namespace Sample;
 
@@ -15,6 +18,9 @@ public class StoragePage : ContentPage
     Label _statusLabel;
     Entry _prefEntry;
     Entry _secureEntry;
+#if MACAPP
+    Label _pickerResultLabel;
+#endif
     int _counter;
 
     public StoragePage()
@@ -77,6 +83,37 @@ public class StoragePage : ContentPage
 
         // Load counter
         _counter = Preferences.Get("test_counter", 0);
+
+#if MACAPP
+        // File Picker section
+        layout.Children.Add(CreateHeader("File Picker"));
+
+        _pickerResultLabel = new Label
+        {
+            FontSize = 16, TextColor = Colors.White,
+            Text = "No file selected"
+        };
+        layout.Children.Add(_pickerResultLabel);
+
+        var pickFileBtn = new Button { Text = "Pick File" };
+        pickFileBtn.Clicked += OnPickFile;
+        layout.Children.Add(pickFileBtn);
+
+        var pickMultiBtn = new Button { Text = "Pick Multiple Files" };
+        pickMultiBtn.Clicked += OnPickMultipleFiles;
+        layout.Children.Add(pickMultiBtn);
+
+        // Media Picker section
+        layout.Children.Add(CreateHeader("Media Picker"));
+
+        var pickPhotoBtn = new Button { Text = "Pick Photo" };
+        pickPhotoBtn.Clicked += OnPickPhoto;
+        layout.Children.Add(pickPhotoBtn);
+
+        var pickVideoBtn = new Button { Text = "Pick Video" };
+        pickVideoBtn.Clicked += OnPickVideo;
+        layout.Children.Add(pickVideoBtn);
+#endif
 
         Content = new ScrollView { Content = layout };
     }
@@ -170,4 +207,95 @@ public class StoragePage : ContentPage
         try { return getter(); }
         catch (Exception ex) { return $"Error: {ex.Message}"; }
     }
+
+#if MACAPP
+    async void OnPickFile(object? sender, EventArgs e)
+    {
+        try
+        {
+            var result = await FilePicker.PickAsync();
+            if (result is not null)
+            {
+                _pickerResultLabel.Text = $"Picked: {result.FileName}";
+                _statusLabel.Text = $"File: {result.FullPath}";
+            }
+            else
+            {
+                _statusLabel.Text = "File picking cancelled";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = $"Error: {ex.Message}";
+        }
+    }
+
+    async void OnPickMultipleFiles(object? sender, EventArgs e)
+    {
+        try
+        {
+            var results = await FilePicker.PickMultipleAsync();
+            var files = results?.Where(r => r is not null).ToList();
+            if (files?.Count > 0)
+            {
+                _pickerResultLabel.Text = $"Picked {files.Count} file(s): {string.Join(", ", files.Select(f => f!.FileName))}";
+                _statusLabel.Text = $"Multiple files picked";
+            }
+            else
+            {
+                _statusLabel.Text = "File picking cancelled";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = $"Error: {ex.Message}";
+        }
+    }
+
+    async void OnPickPhoto(object? sender, EventArgs e)
+    {
+        try
+        {
+#pragma warning disable CS0618
+            var result = await MediaPicker.PickPhotoAsync();
+#pragma warning restore CS0618
+            if (result is not null)
+            {
+                _pickerResultLabel.Text = $"Photo: {result.FileName}";
+                _statusLabel.Text = $"Photo: {result.FullPath}";
+            }
+            else
+            {
+                _statusLabel.Text = "Photo picking cancelled";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = $"Error: {ex.Message}";
+        }
+    }
+
+    async void OnPickVideo(object? sender, EventArgs e)
+    {
+        try
+        {
+#pragma warning disable CS0618
+            var result = await MediaPicker.PickVideoAsync();
+#pragma warning restore CS0618
+            if (result is not null)
+            {
+                _pickerResultLabel.Text = $"Video: {result.FileName}";
+                _statusLabel.Text = $"Video: {result.FullPath}";
+            }
+            else
+            {
+                _statusLabel.Text = "Video picking cancelled";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = $"Error: {ex.Message}";
+        }
+    }
+#endif
 }

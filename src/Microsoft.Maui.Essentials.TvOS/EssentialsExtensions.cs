@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Devices;
+using Microsoft.Maui.Media;
 using Microsoft.Maui.Networking;
 using Microsoft.Maui.Storage;
 
@@ -17,6 +18,7 @@ public static class EssentialsExtensions
         SetStaticField(typeof(FileSystem), "currentImplementation", new FileSystemImplementation());
         SetStaticField(typeof(Preferences), "defaultImplementation", new PreferencesImplementation());
         SetStaticField(typeof(SecureStorage), "defaultImplementation", new SecureStorageImplementation());
+        SetStaticField(typeof(TextToSpeech), "defaultImplementation", new TextToSpeechImplementation());
     }
 
     static void SetStaticField(Type type, string fieldName, object value)
