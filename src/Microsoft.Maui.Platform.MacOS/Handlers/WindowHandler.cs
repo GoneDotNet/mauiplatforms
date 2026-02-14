@@ -1,4 +1,5 @@
 using CoreGraphics;
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Handlers;
 using AppKit;
 
@@ -27,6 +28,7 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         };
 
     FlippedNSView? _contentContainer;
+    MacOSToolbarManager? _toolbarManager;
 
     public WindowHandler() : base(Mapper)
     {
@@ -46,6 +48,10 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         // Use a flipped NSView as ContentView so subviews use top-left origin
         _contentContainer = new FlippedNSView();
         window.ContentView = _contentContainer;
+
+        // Attach the toolbar manager
+        _toolbarManager = new MacOSToolbarManager();
+        _toolbarManager.AttachToWindow(window);
 
         window.MakeKeyAndOrderFront(null);
 
@@ -76,5 +82,118 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
             pageView.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable;
             handler._contentContainer.AddSubview(pageView);
         }
+
+        // Subscribe to page-level navigation events so toolbar refreshes on every page change
+        handler.ObservePageChanges(page);
+        handler.RefreshToolbar();
+    }
+
+    void ObservePageChanges(IView content)
+    {
+        // Unsubscribe previous
+        UnsubscribePageChanges();
+        _observedContent = content;
+
+        SubscribePageChanges(content);
+    }
+
+    IView? _observedContent;
+    readonly List<(object source, string eventName)> _subscriptions = new();
+
+    void SubscribePageChanges(IView? view)
+    {
+        switch (view)
+        {
+            case TabbedPage tabbed:
+                tabbed.CurrentPageChanged += OnCurrentPageChanged;
+                _subscriptions.Add((tabbed, nameof(TabbedPage.CurrentPageChanged)));
+                SubscribePageChanges((IView?)tabbed.CurrentPage);
+                break;
+
+            case NavigationPage nav:
+                nav.Pushed += OnNavigationChanged;
+                nav.Popped += OnNavigationChanged;
+                _subscriptions.Add((nav, "Pushed"));
+                _subscriptions.Add((nav, "Popped"));
+                SubscribePageChanges((IView?)nav.CurrentPage);
+                break;
+
+            case FlyoutPage flyout:
+                flyout.PropertyChanged += OnFlyoutPropertyChanged;
+                _subscriptions.Add((flyout, "PropertyChanged"));
+                SubscribePageChanges((IView?)flyout.Detail);
+                break;
+        }
+    }
+
+    void UnsubscribePageChanges()
+    {
+        foreach (var (source, eventName) in _subscriptions)
+        {
+            switch (source)
+            {
+                case TabbedPage tabbed:
+                    tabbed.CurrentPageChanged -= OnCurrentPageChanged;
+                    break;
+                case NavigationPage nav:
+                    nav.Pushed -= OnNavigationChanged;
+                    nav.Popped -= OnNavigationChanged;
+                    break;
+                case FlyoutPage flyout:
+                    flyout.PropertyChanged -= OnFlyoutPropertyChanged;
+                    break;
+            }
+        }
+        _subscriptions.Clear();
+    }
+
+    void OnCurrentPageChanged(object? sender, EventArgs e)
+    {
+        // Tab changed — resubscribe to the new branch and refresh
+        if (_observedContent != null)
+            ObservePageChanges(_observedContent);
+        RefreshToolbar();
+    }
+
+    void OnNavigationChanged(object? sender, NavigationEventArgs e)
+    {
+        // Push/pop — resubscribe and refresh
+        if (_observedContent != null)
+            ObservePageChanges(_observedContent);
+        RefreshToolbar();
+    }
+
+    void OnFlyoutPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FlyoutPage.Detail))
+        {
+            if (_observedContent != null)
+                ObservePageChanges(_observedContent);
+            RefreshToolbar();
+        }
+    }
+
+    void RefreshToolbar()
+    {
+        if (_toolbarManager == null || _observedContent == null)
+            return;
+
+        var page = FindCurrentPage(_observedContent);
+        _toolbarManager.SetPage(page);
+    }
+
+    /// <summary>
+    /// Walks through navigation containers to find the currently visible content page.
+    /// </summary>
+    static Page? FindCurrentPage(IView? view)
+    {
+        return view switch
+        {
+            FlyoutPage flyout => FindCurrentPage((IView?)flyout.Detail),
+            TabbedPage tabbed => FindCurrentPage((IView?)tabbed.CurrentPage),
+            NavigationPage nav => FindCurrentPage((IView?)nav.CurrentPage),
+            Page page => page,
+            _ => null,
+        };
     }
 }

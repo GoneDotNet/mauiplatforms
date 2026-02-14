@@ -52,6 +52,8 @@ Both platforms share the same set of control handlers:
 | CarouselView | UIScrollView (horizontal paging, snap-to-item) | ❌ Not implemented |
 | ContentPage | TvOSContainerView | MacOSContainerView |
 | ContentView | TvOSContainerView | MacOSContainerView |
+| FlyoutPage | ❌ Not available on tvOS | FlyoutContainerView (NSSplitView sidebar) |
+| Toolbar | ❌ Not available on tvOS | NSToolbar (via Page.ToolbarItems) |
 | BoxView | via ShapeView | via ShapeView |
 | NavigationPage | NavigationContainerView (stack navigation) | NavigationContainerView (stack navigation) |
 | TabbedPage | TabbedContainerView (custom tab bar) | TabbedContainerView (NSSegmentedControl) |
@@ -79,7 +81,6 @@ Both platforms share the same set of control handlers:
 
 ### Pages
 * IndicatorView
-* FlyoutPage
 
 ### Collections
 * RefreshView
@@ -108,7 +109,6 @@ Both platforms share the same set of control handlers:
 
 ### macOS Specific
 * Menu bar integration (NSMenu)
-* Toolbar support (NSToolbar)
 * Touch Bar support
 * NSSecureTextField for Entry.IsPassword (currently no-op)
 * File dialogs (Open/Save panels)

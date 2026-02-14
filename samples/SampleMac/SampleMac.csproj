@@ -45,6 +45,9 @@
         <Compile Include="..\Sample\BlazorPage.cs">
             <Link>BlazorPage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\FlyoutDemoPage.cs">
+            <Link>FlyoutDemoPage.cs</Link>
+        </Compile>
         <Compile Include="..\Sample\Platforms\macOS\Main.cs">
             <Link>Main.cs</Link>
         </Compile>
