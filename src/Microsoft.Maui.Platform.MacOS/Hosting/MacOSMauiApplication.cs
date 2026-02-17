@@ -1,8 +1,6 @@
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Maui.Dispatching;
 using Microsoft.Maui.Hosting;
-using Microsoft.Maui.Platform.MacOS.Dispatching;
 using Microsoft.Maui.Platform.MacOS.Handlers;
 using AppKit;
 
@@ -11,15 +9,11 @@ namespace Microsoft.Maui.Platform.MacOS.Hosting;
 [Register("MacOSMauiApplication")]
 public abstract class MacOSMauiApplication : NSApplicationDelegate, IPlatformApplication
 {
-    MauiApp? _mauiApp;
-    MacOSMauiContext? _mauiContext;
-    IApplication? _application;
+    IApplication _mauiApp = null!;
 
-    public IServiceProvider Services => _mauiApp?.Services ?? throw new InvalidOperationException("MauiApp not initialized");
+    public IServiceProvider Services { get; protected set; } = null!;
 
-    IApplication IPlatformApplication.Application => _application ?? throw new InvalidOperationException("Application not initialized");
-
-    public MacOSMauiContext MauiContext => _mauiContext ?? throw new InvalidOperationException("MauiContext not initialized");
+    public IApplication Application => _mauiApp;
 
     protected abstract MauiApp CreateMauiApp();
 
@@ -27,38 +21,51 @@ public abstract class MacOSMauiApplication : NSApplicationDelegate, IPlatformApp
     {
         try
         {
-            _mauiApp = CreateMauiApp();
-            _mauiContext = new MacOSMauiContext(_mauiApp.Services);
             IPlatformApplication.Current = this;
 
-            DispatcherProvider.SetCurrent(new MacOSDispatcherProvider());
+            var mauiApp = CreateMauiApp();
 
-            _application = _mauiApp.Services.GetRequiredService<IApplication>();
+            var rootContext = new MacOSMauiContext(mauiApp.Services);
+            var applicationContext = rootContext.MakeApplicationScope(this);
 
-            // Create the application handler
-            var appHandler = _mauiContext.Handlers.GetHandler(_application.GetType());
-            if (appHandler != null)
-            {
-                appHandler.SetMauiContext(_mauiContext);
-                appHandler.SetVirtualView(_application);
-            }
+            Services = applicationContext.Services;
 
-            // Create the window through MAUI's pipeline
-            var activationState = new ActivationState(_mauiContext);
-            var window = _application.CreateWindow(activationState);
+            _mauiApp = Services.GetRequiredService<IApplication>();
 
-            // Create window handler
-            var windowHandler = _mauiContext.Handlers.GetHandler(window.GetType());
-            if (windowHandler != null)
-            {
-                windowHandler.SetMauiContext(_mauiContext);
-                windowHandler.SetVirtualView(window);
-            }
+            // Wire up ApplicationHandler
+            var appHandler = new ApplicationHandler();
+            appHandler.SetMauiContext(applicationContext);
+            appHandler.SetVirtualView(_mauiApp);
+
+            // Create the window
+            CreatePlatformWindow(applicationContext);
+
+            OnStarted();
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"MAUI STARTUP EXCEPTION: {ex}");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Called after the MAUI application and window have been fully initialized.
+    /// Override to perform post-startup actions like starting debug agents.
+    /// </summary>
+    protected virtual void OnStarted() { }
+
+    private void CreatePlatformWindow(MacOSMauiContext applicationContext)
+    {
+        var virtualWindow = _mauiApp.CreateWindow(null);
+
+        var windowContext = applicationContext.MakeWindowScope(new NSWindow());
+
+        var windowHandler = new WindowHandler();
+        windowHandler.SetMauiContext(windowContext);
+        windowHandler.SetVirtualView(virtualWindow);
+
+        virtualWindow.Created();
+        virtualWindow.Activated();
     }
 }

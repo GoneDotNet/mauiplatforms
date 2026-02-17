@@ -36,6 +36,7 @@
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
         <Compile Include="Platforms\macOS\**\*.cs" />
         <ProjectReference Include="..\..\src\Microsoft.Maui.Platform.MacOS\Microsoft.Maui.Platform.MacOS.csproj"/>
+        <ProjectReference Include="..\..\src\Microsoft.Maui.Essentials.MacOS\Microsoft.Maui.Essentials.MacOS.csproj"/>
     </ItemGroup>
             
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tvos'">

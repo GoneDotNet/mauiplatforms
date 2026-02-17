@@ -27,38 +27,65 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Include="..\Sample\App.cs">
+        <Compile Include="..\Sample\Platforms\macOS\App.cs">
             <Link>App.cs</Link>
-        </Compile>
-        <Compile Include="..\Sample\AppColors.cs">
-            <Link>AppColors.cs</Link>
-        </Compile>
-        <Compile Include="..\Sample\MainPage.cs">
-            <Link>MainPage.cs</Link>
-        </Compile>
-        <Compile Include="..\Sample\CollectionViewPage.cs">
-            <Link>CollectionViewPage.cs</Link>
-        </Compile>
-        <Compile Include="..\Sample\EssentialsPage.cs">
-            <Link>EssentialsPage.cs</Link>
-        </Compile>
-        <Compile Include="..\Sample\StoragePage.cs">
-            <Link>StoragePage.cs</Link>
-        </Compile>
-        <Compile Include="..\Sample\BlazorPage.cs">
-            <Link>BlazorPage.cs</Link>
-        </Compile>
-        <Compile Include="..\Sample\FlyoutDemoPage.cs">
-            <Link>FlyoutDemoPage.cs</Link>
-        </Compile>
-        <Compile Include="..\Sample\GraphicsViewPage.cs">
-            <Link>GraphicsViewPage.cs</Link>
         </Compile>
         <Compile Include="..\Sample\Platforms\macOS\Main.cs">
             <Link>Main.cs</Link>
         </Compile>
         <Compile Include="..\Sample\Platforms\macOS\MauiMacOSApp.cs">
             <Link>MauiMacOSApp.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Platforms\macOS\MauiProgram.cs">
+            <Link>MauiProgram.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\AppColors.cs">
+            <Link>AppColors.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\HomePage.cs">
+            <Link>Pages\HomePage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\ControlsPage.cs">
+            <Link>Pages\ControlsPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\PickersPage.cs">
+            <Link>Pages\PickersPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\LayoutsPage.cs">
+            <Link>Pages\LayoutsPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\AlertsPage.cs">
+            <Link>Pages\AlertsPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\CollectionViewPage.cs">
+            <Link>Pages\CollectionViewPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\GraphicsPage.cs">
+            <Link>Pages\GraphicsPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\DeviceInfoPage.cs">
+            <Link>Pages\DeviceInfoPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\BatteryNetworkPage.cs">
+            <Link>Pages\BatteryNetworkPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\ClipboardPrefsPage.cs">
+            <Link>Pages\ClipboardPrefsPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\LaunchSharePage.cs">
+            <Link>Pages\LaunchSharePage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\BlazorPage.cs">
+            <Link>Pages\BlazorPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\NavigationDemoPage.cs">
+            <Link>Pages\NavigationDemoPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\TabbedPageDemo.cs">
+            <Link>Pages\TabbedPageDemo.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\FlyoutPageDemo.cs">
+            <Link>Pages\FlyoutPageDemo.cs</Link>
         </Compile>
     </ItemGroup>
 

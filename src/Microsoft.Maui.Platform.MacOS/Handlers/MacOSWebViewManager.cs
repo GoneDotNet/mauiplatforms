@@ -16,7 +16,7 @@ internal class MacOSWebViewManager : WebViewManager
     public MacOSWebViewManager(
         WKWebView webview,
         IServiceProvider provider,
-        Dispatcher dispatcher,
+        Microsoft.AspNetCore.Components.Dispatcher dispatcher,
         IFileProvider fileProvider,
         JSComponentConfigurationStore jsComponents,
         string contentRootRelativeToAppRoot,
