@@ -67,7 +67,6 @@ public abstract class TvOSMauiApplication : UIApplicationDelegate, IPlatformAppl
             }
 
             window.Created();
-            window.Activated();
 
             FireLifecycleEvents<TvOSLifecycle.FinishedLaunching>(del => del(application));
 

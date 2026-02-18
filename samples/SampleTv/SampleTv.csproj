@@ -43,6 +43,9 @@
         <Compile Include="..\Sample\StoragePage.cs">
             <Link>StoragePage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\Pages\MapPage.cs">
+            <Link>Pages\MapPage.cs</Link>
+        </Compile>
         <Compile Include="..\Sample\Platforms\tvOS\Main.cs">
             <Link>Main.cs</Link>
         </Compile>

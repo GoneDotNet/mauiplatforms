@@ -41,6 +41,7 @@ class MainShell : FlyoutPage
 		("🧭 Navigation", () => new NavigationPage(new NavigationDemoPage())),
 		("📑 TabbedPage", () => new TabbedPageDemo()),
 		("📂 FlyoutPage", () => new Pages.FlyoutPageDemo()),
+		("🗺️ Map", () => new Pages.MapPage()),
 	];
 
 	public MainShell()

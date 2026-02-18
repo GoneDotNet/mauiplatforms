@@ -37,6 +37,7 @@ public static class MauiAppBuilderExtensions
             handlers.AddHandler(typeof(Microsoft.Maui.Controls.CarouselView), typeof(CarouselViewHandler));
             handlers.AddHandler(typeof(Microsoft.Maui.Controls.TabbedPage), typeof(TabbedPageHandler));
             handlers.AddHandler<ISearchBar, SearchBarHandler>();
+            handlers.AddHandler<Controls.MapView, MapViewHandler>();
         });
 
         builder.Services.TryAddSingleton<IDispatcher, TvOSDispatcher>();

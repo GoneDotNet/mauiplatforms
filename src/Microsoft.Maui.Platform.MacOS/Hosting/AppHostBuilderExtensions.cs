@@ -59,6 +59,7 @@ public static partial class AppHostBuilderExtensions
         handlersCollection.AddHandler<BoxView, ShapeViewHandler>();
 
         handlersCollection.AddHandler<Controls.MacOSBlazorWebView, BlazorWebViewHandler>();
+        handlersCollection.AddHandler<Controls.MapView, MapViewHandler>();
 
         return handlersCollection;
     }

@@ -87,6 +87,9 @@
         <Compile Include="..\Sample\Pages\FlyoutPageDemo.cs">
             <Link>Pages\FlyoutPageDemo.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\Pages\MapPage.cs">
+            <Link>Pages\MapPage.cs</Link>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>

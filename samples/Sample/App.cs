@@ -23,6 +23,7 @@ public class App : Microsoft.Maui.Controls.Application
         tabbedPage.Children.Add(new NavigationPage(controlsPage) { Title = "Controls" });
         tabbedPage.Children.Add(new NavigationPage(essentialsPage) { Title = "Essentials" });
         tabbedPage.Children.Add(new NavigationPage(storagePage) { Title = "Storage" });
+        tabbedPage.Children.Add(new NavigationPage(new Sample.Pages.MapPage { Title = "Map" }) { Title = "Map" });
 #if MACAPP
         tabbedPage.Children.Add(new NavigationPage(new FlyoutDemoPage { Title = "FlyoutPage" }) { Title = "FlyoutPage" });
 #endif

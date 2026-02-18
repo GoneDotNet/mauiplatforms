@@ -62,6 +62,7 @@ Both platforms share the same set of control handlers:
 | NavigationPage | NavigationContainerView (stack navigation) | NavigationContainerView (stack navigation) |
 | TabbedPage | TabbedContainerView (custom tab bar) | TabbedContainerView (NSSegmentedControl) |
 | WebView | ❌ Not available on tvOS | WKWebView |
+| MapView | MKMapView (display-only) | MKMapView (interactive) |
 | BlazorWebView | ❌ Not available on tvOS | MacOSBlazorWebView + WKWebView |
 
 ### Infrastructure
