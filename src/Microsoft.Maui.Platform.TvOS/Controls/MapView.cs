@@ -1,4 +1,7 @@
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 
 namespace Microsoft.Maui.Platform.TvOS.Controls;
 
@@ -7,6 +10,39 @@ public enum MapType
     Standard,
     Satellite,
     Hybrid,
+}
+
+public class MapPin
+{
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+}
+
+public class MapCircle
+{
+    public double CenterLatitude { get; set; }
+    public double CenterLongitude { get; set; }
+    public double Radius { get; set; } = 1000;
+    public Color? StrokeColor { get; set; }
+    public Color? FillColor { get; set; }
+    public float StrokeWidth { get; set; } = 2;
+}
+
+public class MapPolyline
+{
+    public List<(double Latitude, double Longitude)> Positions { get; set; } = [];
+    public Color? StrokeColor { get; set; }
+    public float StrokeWidth { get; set; } = 2;
+}
+
+public class MapPolygon
+{
+    public List<(double Latitude, double Longitude)> Positions { get; set; } = [];
+    public Color? StrokeColor { get; set; }
+    public Color? FillColor { get; set; }
+    public float StrokeWidth { get; set; } = 2;
 }
 
 /// <summary>
@@ -31,6 +67,11 @@ public class MapView : View
 
     public static readonly BindableProperty IsShowingUserProperty =
         BindableProperty.Create(nameof(IsShowingUser), typeof(bool), typeof(MapView), false);
+
+    public ObservableCollection<MapPin> Pins { get; } = [];
+    public ObservableCollection<MapCircle> Circles { get; } = [];
+    public ObservableCollection<MapPolyline> Polylines { get; } = [];
+    public ObservableCollection<MapPolygon> Polygons { get; } = [];
 
     public double Latitude
     {

@@ -13,7 +13,6 @@ public class MapPage : ContentPage
     readonly MapView _mapView;
     readonly Label _coordsLabel;
 
-    // Preset locations
     static readonly (string Name, double Lat, double Lon)[] Locations =
     [
         ("Seattle", 47.6062, -122.3321),
@@ -45,6 +44,59 @@ public class MapPage : ContentPage
             LongitudeDelta = 0.05,
         };
 
+        // Add pins for all locations
+        foreach (var loc in Locations)
+        {
+            _mapView.Pins.Add(new MapPin
+            {
+                Latitude = loc.Lat,
+                Longitude = loc.Lon,
+                Label = loc.Name,
+                Address = $"{loc.Lat:F4}, {loc.Lon:F4}",
+            });
+        }
+
+        // Add a circle around Seattle
+        _mapView.Circles.Add(new MapCircle
+        {
+            CenterLatitude = 47.6062,
+            CenterLongitude = -122.3321,
+            Radius = 2000,
+            StrokeColor = Colors.DodgerBlue,
+            FillColor = Color.FromRgba(30, 144, 255, 50),
+            StrokeWidth = 2,
+        });
+
+        // Add a polyline route: Seattle → San Francisco
+        _mapView.Polylines.Add(new MapPolyline
+        {
+            Positions =
+            [
+                (47.6062, -122.3321),
+                (45.5152, -122.6784),
+                (42.3601, -122.9120),
+                (39.8283, -121.9780),
+                (37.7749, -122.4194),
+            ],
+            StrokeColor = Colors.OrangeRed,
+            StrokeWidth = 3,
+        });
+
+        // Add a polygon around downtown Seattle
+        _mapView.Polygons.Add(new MapPolygon
+        {
+            Positions =
+            [
+                (47.6130, -122.3470),
+                (47.6130, -122.3280),
+                (47.6030, -122.3280),
+                (47.6030, -122.3470),
+            ],
+            StrokeColor = Colors.Green,
+            FillColor = Color.FromRgba(0, 128, 0, 40),
+            StrokeWidth = 2,
+        });
+
         var locationPicker = new Picker { Title = "Jump to location..." };
         foreach (var loc in Locations)
             locationPicker.Items.Add(loc.Name);
@@ -56,6 +108,27 @@ public class MapPage : ContentPage
             _mapView.Latitude = loc.Lat;
             _mapView.Longitude = loc.Lon;
             _coordsLabel.Text = $"{loc.Name} ({loc.Lat:F2}, {loc.Lon:F2})";
+        };
+
+        var addPinButton = new Button { Text = "Add Pin at Center" };
+        addPinButton.Clicked += (s, e) =>
+        {
+            _mapView.Pins.Add(new MapPin
+            {
+                Latitude = _mapView.Latitude,
+                Longitude = _mapView.Longitude,
+                Label = $"Pin #{_mapView.Pins.Count + 1}",
+                Address = $"{_mapView.Latitude:F4}, {_mapView.Longitude:F4}",
+            });
+        };
+
+        var clearButton = new Button { Text = "Clear All" };
+        clearButton.Clicked += (s, e) =>
+        {
+            _mapView.Pins.Clear();
+            _mapView.Circles.Clear();
+            _mapView.Polylines.Clear();
+            _mapView.Polygons.Clear();
         };
 
 #if MACAPP
@@ -110,8 +183,19 @@ public class MapPage : ContentPage
                     Children = { mapTypePicker, zoomInButton, zoomOutButton },
                 },
 #endif
+                new HorizontalStackLayout
+                {
+                    Spacing = 8,
+                    Children = { addPinButton, clearButton },
+                },
                 _coordsLabel,
                 _mapView,
+                new Label
+                {
+                    Text = "📍 Pins at all cities • 🔵 Circle around Seattle • 🟠 Route to SF • 🟩 Downtown polygon",
+                    FontSize = 12,
+                    TextColor = Colors.Gray,
+                },
             },
         };
 
