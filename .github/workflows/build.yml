@@ -1,0 +1,58 @@
+﻿name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'
+        required: true
+        default: 'warning'
+  push:
+    branches:
+    - main
+    - dev
+    - preview
+    - v*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+          fetch-depth: 0
+
+    - name: Setup .NET 10.0
+      uses: actions/setup-dotnet@v4
+      with:
+          dotnet-version: '10.0.x'
+
+    - name: Add .NET Workloads
+      run: dotnet workload install maui tvos macos
+
+    - name: Build
+      run: dotnet build build.slnf -m -property:Configuration=Release
+
+    - name: Post NuGet Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-artifacts
+        path: '**/*.nupkg'
+
+    - name: Publish Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nugets
+        path: ${{ github.workspace }}/artifacts
+        retention-days: 5
+
+    - name: Publish NuGets
+      if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/v') }}
+      run: dotnet nuget push **\*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGETAPIKEY }}

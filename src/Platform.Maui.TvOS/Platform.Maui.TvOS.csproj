@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>$(BaseTargetFramework)-tvos</TargetFramework>
+        <RootNamespace>Microsoft.Maui.Platform.TvOS</RootNamespace>
+        <SupportedOSPlatformVersion>16.0</SupportedOSPlatformVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Core" Version="$(MauiVersion)"/>
+        <PackageReference Include="Microsoft.Maui.Controls.Core" Version="$(MauiVersion)"/>
+    </ItemGroup>
+
+</Project>

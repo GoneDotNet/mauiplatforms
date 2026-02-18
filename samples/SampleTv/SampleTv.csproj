@@ -20,8 +20,8 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>
-        <ProjectReference Include="..\..\src\Microsoft.Maui.Platform.tvOS\Microsoft.Maui.Platform.tvOS.csproj"/>
-        <ProjectReference Include="..\..\src\Microsoft.Maui.Essentials.TvOS\Microsoft.Maui.Essentials.TvOS.csproj"/>
+        <ProjectReference Include="..\..\src\Platform.Maui.TvOS\Platform.Maui.TvOS.csproj" />
+        <ProjectReference Include="..\..\src\Platform.Maui.Essentials.TvOS\Platform.Maui.Essentials.TvOS.csproj" />
     </ItemGroup>
 
     <ItemGroup>

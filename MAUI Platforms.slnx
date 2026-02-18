@@ -2,13 +2,20 @@
   <Folder Name="/samples/">
     <Project Path="samples/SampleTv/SampleTv.csproj" />
     <Project Path="samples\SampleMac\SampleMac.csproj" />
-    <Project Path="samples\Sample\Sample.csproj" />
   </Folder>
   <Folder Name="/Solution/">
+    <File Path=".github\workflows\build.yml" />
+    <File Path="Directory.build.props" />
+    <File Path="LICENSE" />
+    <File Path="maui_appletv.mp4" />
+    <File Path="maui_macos.mp4" />
+    <File Path="nuget.png" />
     <File Path="readme.md" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/Microsoft.Maui.Platform.TvOS/Microsoft.Maui.Platform.TvOS.csproj" />
-    <Project Path="src/Microsoft.Maui.Platform.MacOS/Microsoft.Maui.Platform.MacOS.csproj" />
+    <Project Path="src\Platform.Maui.Essentials.MacOS\Platform.Maui.Essentials.MacOS.csproj" />
+    <Project Path="src\Platform.Maui.Essentials.TvOS\Platform.Maui.Essentials.TvOS.csproj" />
+    <Project Path="src\Platform.Maui.MacOS\Platform.Maui.MacOS.csproj" />
+    <Project Path="src\Platform.Maui.TvOS\Platform.Maui.TvOS.csproj" />
   </Folder>
 </Solution>
