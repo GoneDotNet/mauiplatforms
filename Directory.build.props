@@ -10,9 +10,10 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageIcon>icon.png</PackageIcon>
         <PackageReadmeFile>readme.md</PackageReadmeFile>
-        <PackageProjectUrl>hhttps://github.com/shinyorg/mauiplatforms</PackageProjectUrl>
-        <PackageTags>shiny maui platforms essentials tvos macos</PackageTags>
+        <PackageProjectUrl>https://github.com/shinyorg/mauiplatforms</PackageProjectUrl>
+        <PackageReleaseNotes>https://github.com/shinyorg/mauiplatforms</PackageReleaseNotes>
         <RepositoryUrl>https://github.com/shinyorg/mauiplatforms</RepositoryUrl>
+        <PackageTags>shiny maui platforms essentials tvos macos</PackageTags>
 
         <CI Condition="'$(GITHUB_ACTIONS)' == 'true'">true</CI>
         <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
