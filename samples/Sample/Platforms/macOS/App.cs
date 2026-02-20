@@ -111,7 +111,8 @@ class MainShell : FlyoutPage
 			Text = icon,
 			FontSize = 13,
 			VerticalOptions = LayoutOptions.Center,
-			WidthRequest = 20,
+			MinimumWidthRequest = 24,
+			WidthRequest = 24,
 			HorizontalTextAlignment = TextAlignment.Center,
 		});
 
