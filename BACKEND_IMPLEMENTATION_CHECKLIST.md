@@ -241,9 +241,9 @@ Every handler must support these properties mapped from the base `IView` in `Mac
 | Feature | Status | Notes |
 |---------|--------|-------|
 | [x] **IFontManager** | ✅ | `MacOSFontManager` resolves `Font` → `NSFont` with family, size, weight (Bold/Light), slant (Italic/Oblique). Registered as singleton via `Services.Replace()` |
-| [ ] **IFontRegistrar** | ❌ | Register embedded fonts with aliases |
-| [ ] **IEmbeddedFontLoader** | ❌ | Extract fonts from assembly resources, register via `CTFontManager` |
-| [ ] **Native Font Loading** | ❌ | Register fonts with CoreText (`CTFontManagerRegisterFontsForURL`) |
+| [x] **IFontRegistrar** | ✅ | Font registration handled by MAUI's built-in `FontRegistrar` — our `MacOSEmbeddedFontLoader` provides the platform loading |
+| [x] **IEmbeddedFontLoader** | ✅ | `MacOSEmbeddedFontLoader` loads fonts from streams via `CGDataProvider` → `CGFont.CreateFromProvider()` → `CTFontManager.RegisterGraphicsFont()`, returns PostScript name for `NSFont.FromFontName()` |
+| [x] **Native Font Loading** | ✅ | Registered via CoreText `CTFontManager.RegisterGraphicsFont()` |
 | [x] **IFontNamedSizeService** | ✅ | `MacOSFontNamedSizeService` maps NamedSize enum to macOS point sizes. Registered via `[assembly: Dependency]` attribute. Prevents `XamlParseException` for `FontSize="Title"`. |
 | [~] **Font properties** | Partial | Font mapped on Label, Entry, Editor with family/size/bold via `FontExtensions.ToNSFont()`; not all controls wire up FontFamily/FontAttributes |
 
@@ -374,7 +374,7 @@ FormattedText requires special handling as a compound property using `NSAttribut
 | **Shapes** | 1 handler | 6 types | Single ShapeViewHandler covers all shape types |
 | **Essentials** | 15 of 20 | 20 | Missing: Geolocation, Map, SemanticScreenReader, VersionTracking, Vibration |
 | **Dialog Types** | 3 of 3 | 3 | All implemented via NSAlert |
-| **Font Services** | 2 of 5 | 5 | IFontNamedSizeService + IFontManager implemented; missing IFontRegistrar, IEmbeddedFontLoader |
+| **Font Services** | 5 of 5 | 5 | ✅ Full: IFontManager, IFontRegistrar, IEmbeddedFontLoader, Native Loading, IFontNamedSizeService |
 | **Animations** | 9 of 9 | 9 | ✅ Full: MacOSTicker + MAUI's cross-platform animation system handles all animation types |
 | **MenuBar** | 4 of 4 | 4 | ✅ Full: MenuBarItem, MenuFlyoutItem, MenuFlyoutSeparator, MenuFlyoutSubItem |
 | **FormattedText** | 9 of 9 | 9 | ✅ Full: All span properties mapped via NSAttributedString |

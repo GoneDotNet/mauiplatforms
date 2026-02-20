@@ -105,10 +105,17 @@
         <Compile Include="..\Sample\Pages\MapPage.cs">
             <Link>Pages\MapPage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\Pages\FontsPage.cs">
+            <Link>Pages\FontsPage.cs</Link>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>
         <BundleResource Include="..\Sample\wwwroot\**" Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <MauiFont Include="..\Sample\Resources\Fonts\*" />
     </ItemGroup>
 
 </Project>

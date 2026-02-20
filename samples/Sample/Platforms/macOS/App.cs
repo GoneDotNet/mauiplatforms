@@ -27,6 +27,7 @@ class MainShell : FlyoutPage
 		("🏠", "Home", () => new HomePage()),
 		("🎛️", "Controls", () => new ControlsPage()),
 		("📅", "Pickers & Search", () => new PickersPage()),
+		("🔤", "Fonts", () => new Pages.FontsPage()),
 		("📐", "Layouts", () => new LayoutsPage()),
 		("💬", "Alerts & Dialogs", () => new AlertsPage()),
 		("📋", "Collection View", () => new Pages.CollectionViewPage()),

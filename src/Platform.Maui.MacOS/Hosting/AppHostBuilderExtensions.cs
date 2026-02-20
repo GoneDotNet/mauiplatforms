@@ -81,6 +81,10 @@ public static partial class AppHostBuilderExtensions
         // This ensures animation property updates happen on the main thread (required for AppKit).
         builder.Services.Replace(ServiceDescriptor.Scoped<ITicker>(svc => new MacOSTicker()));
 
+        // Register macOS embedded font loader for CTFontManager registration
+        builder.Services.Replace(ServiceDescriptor.Singleton<IEmbeddedFontLoader>(svc =>
+            new MacOSEmbeddedFontLoader(svc)));
+
         // Register macOS font manager for proper font resolution
         builder.Services.Replace(ServiceDescriptor.Singleton<IFontManager>(svc =>
             new MacOSFontManager(svc.GetRequiredService<IFontRegistrar>())));
