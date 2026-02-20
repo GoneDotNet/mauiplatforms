@@ -39,6 +39,7 @@ public static partial class AppHostBuilderExtensions
         handlersCollection.AddHandler<ProgressBar, ProgressBarHandler>();
         handlersCollection.AddHandler<ActivityIndicator, ActivityIndicatorHandler>();
         handlersCollection.AddHandler(typeof(Microsoft.Maui.Controls.Image), typeof(ImageHandler));
+        handlersCollection.AddHandler<ImageButton, ImageButtonHandler>();
         handlersCollection.AddHandler<Picker, PickerHandler>();
         handlersCollection.AddHandler<DatePicker, DatePickerHandler>();
         handlersCollection.AddHandler<TimePicker, TimePickerHandler>();

@@ -77,9 +77,9 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 
 | Control | Status | Notes |
 |---------|--------|-------|
-| [x] **Label** | ✅ | Text, TextColor, Font (family/size/bold), HorizontalTextAlignment, LineBreakMode, MaxLines, TextDecorations, CharacterSpacing, FormattedText/Spans (via `NSAttributedString`) |
+| [x] **Label** | ✅ | Text, TextColor, Font (family/size/bold), HorizontalTextAlignment, LineBreakMode, MaxLines, TextDecorations, CharacterSpacing, Padding (via `MauiNSTextField`/`MauiNSTextFieldCell` with TextInsets), FormattedText/Spans (via `NSAttributedString`) |
 | [~] **Button** | Partial | Maps Text, TextColor, Font, CharacterSpacing, Background, CornerRadius, StrokeColor, StrokeThickness, Padding, ImageSource, Clicked event |
-| [ ] **ImageButton** | ❌ | Not implemented — no ImageButtonHandler |
+| [x] **ImageButton** | ✅ | `ImageButtonHandler` maps Source (file/URI), Clicked, Background, CornerRadius, StrokeColor, StrokeThickness via `NSButton` with ImageOnly position |
 | [~] **Entry** | Partial | Maps Text, TextColor, Font, CharacterSpacing, Placeholder, PlaceholderColor, IsPassword (NSSecureTextField swap), IsReadOnly, HorizontalTextAlignment, MaxLength, ReturnType, CursorPosition, SelectionLength, IsTextPredictionEnabled |
 | [~] **Editor** | Partial | Maps Text, TextColor, Font (family/size/bold), IsReadOnly, HorizontalTextAlignment, MaxLength, CharacterSpacing, Placeholder (accessibility); missing AutoSize |
 | [~] **Switch** | Partial | Maps IsOn via `NSSwitch`; TrackColor/ThumbColor limited by AppKit control |
@@ -189,10 +189,10 @@ Every handler must support these properties mapped from the base `IView` in `Mac
 - [x] MaximumWidthRequest / MaximumHeightRequest
 
 ### Layout
-- [ ] HorizontalOptions (Start, Center, End, Fill)
-- [ ] VerticalOptions (Start, Center, End, Fill)
-- [ ] Margin
-- [ ] Padding (for views implementing IPadding)
+- [x] HorizontalOptions (Start, Center, End, Fill)
+- [x] VerticalOptions (Start, Center, End, Fill)
+- [x] Margin
+- [x] Padding (for views implementing IPadding)
 - [x] FlowDirection (LTR, RTL) → `NSView.UserInterfaceLayoutDirection`
 - [ ] ZIndex → `NSView` subview ordering or `layer.zPosition`
 
@@ -201,7 +201,7 @@ Every handler must support these properties mapped from the base `IView` in `Mac
 - [~] Background (LinearGradientBrush, RadialGradientBrush) → needs `CAGradientLayer` (only SolidPaint supported currently)
 
 ### Interactivity Attachments
-- [ ] **ToolTip** — `ToolTipProperties.Text` → `NSView.ToolTip`
+- [x] **ToolTip** — `ToolTipProperties.Text` → `NSView.ToolTip`
 - [ ] **ContextFlyout** — `FlyoutBase.GetContextFlyout()` → `NSMenu` on right-click
 
 ### Transforms
@@ -367,7 +367,7 @@ FormattedText requires special handling as a compound property using `NSAttribut
 | **Core Infrastructure** | 6 of 6 | 6 | All core abstractions in place including gesture integration |
 | **Pages** | 4 of 5 | 5 | Missing: Shell |
 | **Layouts** | 9 of 10 | 10 | Missing: Frame (dedicated handler) |
-| **Basic Controls** | 11 of 14 | 14 | Missing: ImageButton; Label now fully implemented |
+| **Basic Controls** | 12 of 14 | 14 | ImageButton now implemented; Label has full Padding support |
 | **Collection Controls** | 1 of 7 | 7 | Only CollectionView (basic); missing 6 controls |
 | **Input Controls** | 4 of 4 | 4 | All present; Entry/Editor improved with font/spacing |
 | **Gesture Recognizers** | 3 of 5 | 5 | Tap, Pan, Pointer implemented; missing Swipe, Pinch |
@@ -378,4 +378,4 @@ FormattedText requires special handling as a compound property using `NSAttribut
 | **Animations** | 9 of 9 | 9 | ✅ Full: MacOSTicker + MAUI's cross-platform animation system handles all animation types |
 | **MenuBar** | 4 of 4 | 4 | ✅ Full: MenuBarItem, MenuFlyoutItem, MenuFlyoutSeparator, MenuFlyoutSubItem |
 | **FormattedText** | 9 of 9 | 9 | ✅ Full: All span properties mapped via NSAttributedString |
-| **Base View Properties** | ~15 of 20+ | 20+ | Opacity, IsVisible, IsEnabled, Background, FlowDirection, AutomationId, Transforms, Clip, Shadow, MaxWidth/MaxHeight |
+| **Base View Properties** | ~18 of 20+ | 20+ | Opacity, IsVisible, IsEnabled, Background, FlowDirection, AutomationId, Transforms, Clip, Shadow, ToolTip, HorizontalOptions, VerticalOptions, Margin, Padding |

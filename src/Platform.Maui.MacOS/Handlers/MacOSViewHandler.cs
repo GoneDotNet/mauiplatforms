@@ -42,6 +42,7 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
                 mapper[nameof(IView.AnchorX)] = MapTransform;
                 mapper[nameof(IView.AnchorY)] = MapTransform;
                 mapper[nameof(IView.InputTransparent)] = MapInputTransparent;
+                mapper["ToolTipProperties.Text"] = MapToolTip;
             }
         }
         catch
@@ -238,6 +239,15 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
         // The simplest approach: use the AccessibilityElement flag to skip hit testing.
         // More robust: NSView doesn't have a direct "user interaction enabled" property.
         // We rely on the container view's HitTest override to skip InputTransparent children.
+    }
+
+    public static void MapToolTip(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is NSView platformView && view is Microsoft.Maui.Controls.View mauiView)
+        {
+            var tooltip = Microsoft.Maui.Controls.ToolTipProperties.GetText(mauiView);
+            platformView.ToolTip = tooltip?.ToString() ?? string.Empty;
+        }
     }
 
     public override void PlatformArrange(Rect rect)
