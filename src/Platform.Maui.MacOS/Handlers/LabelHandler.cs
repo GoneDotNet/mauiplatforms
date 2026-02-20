@@ -6,7 +6,7 @@ using Foundation;
 
 namespace Microsoft.Maui.Platform.MacOS.Handlers;
 
-public partial class LabelHandler : MacOSViewHandler<ILabel, NSTextField>
+public partial class LabelHandler : MacOSViewHandler<ILabel, MauiNSTextField>
 {
     public static readonly IPropertyMapper<ILabel, LabelHandler> Mapper =
         new PropertyMapper<ILabel, LabelHandler>(ViewMapper)
@@ -27,9 +27,9 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, NSTextField>
     {
     }
 
-    protected override NSTextField CreatePlatformView()
+    protected override MauiNSTextField CreatePlatformView()
     {
-        var label = NSTextField.CreateLabel(string.Empty);
+        var label = new MauiNSTextField();
         label.Editable = false;
         label.Selectable = false;
         label.Bordered = false;
@@ -50,21 +50,26 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, NSTextField>
         if (double.IsNaN(heightConstraint))
             heightConstraint = double.PositiveInfinity;
 
-        var widthConstrained = !double.IsPositiveInfinity(widthConstraint);
+        var insets = platformView.TextInsets;
+        var hInsets = (double)insets.Left + (double)insets.Right;
+        var vInsets = (double)insets.Top + (double)insets.Bottom;
+
+        // Reduce constraint by padding before measuring text
+        var textWidth = double.IsPositiveInfinity(widthConstraint) ? widthConstraint : widthConstraint - hInsets;
+        var textHeight = double.IsPositiveInfinity(heightConstraint) ? heightConstraint : heightConstraint - vInsets;
+        var widthConstrained = !double.IsPositiveInfinity(textWidth);
 
         // Use NSCell.CellSizeForBounds for accurate text measurement
-        // IntrinsicContentSize.Width is -1 for word-wrapping NSTextFields,
-        // and FittingSize is unreliable without Auto Layout, causing truncation.
         var cell = platformView.Cell;
         var constraintRect = new CGRect(0, 0,
-            widthConstrained ? (nfloat)widthConstraint : (nfloat)10000,
-            !double.IsPositiveInfinity(heightConstraint) ? (nfloat)heightConstraint : (nfloat)10000);
+            widthConstrained ? (nfloat)textWidth : (nfloat)10000,
+            !double.IsPositiveInfinity(textHeight) ? (nfloat)textHeight : (nfloat)10000);
         var cellSize = cell.CellSizeForBounds(constraintRect);
 
-        var measuredWidth = Math.Ceiling((double)cellSize.Width);
-        var measuredHeight = Math.Ceiling((double)cellSize.Height);
+        var measuredWidth = Math.Ceiling((double)cellSize.Width) + hInsets;
+        var measuredHeight = Math.Ceiling((double)cellSize.Height) + vInsets;
 
-        if (widthConstrained)
+        if (!double.IsPositiveInfinity(widthConstraint))
             measuredWidth = Math.Min(measuredWidth, widthConstraint);
 
         // Apply explicit MAUI dimensions
@@ -158,7 +163,10 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, NSTextField>
 
     public static void MapPadding(LabelHandler handler, ILabel label)
     {
-        // NSTextField doesn't natively support padding; handled by MAUI layout via Margin
+        var padding = label.Padding;
+        handler.PlatformView.TextInsets = new AppKit.NSEdgeInsets(
+            (nfloat)padding.Top, (nfloat)padding.Left,
+            (nfloat)padding.Bottom, (nfloat)padding.Right);
     }
 
     public static void MapFormattedText(LabelHandler handler, ILabel label)
