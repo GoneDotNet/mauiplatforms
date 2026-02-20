@@ -45,6 +45,7 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
                 mapper[nameof(IView.ZIndex)] = MapZIndex;
                 mapper["ContextFlyout"] = MapContextFlyout;
                 mapper["ToolTipProperties.Text"] = MapToolTip;
+                mapper[nameof(IView.Semantics)] = MapSemantics;
             }
         }
         catch
@@ -170,6 +171,28 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
     {
         if (handler.PlatformView is NSView platformView)
             platformView.AccessibilityIdentifier = view.AutomationId;
+    }
+
+    public static void MapSemantics(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is not NSView platformView)
+            return;
+
+        var semantics = view.Semantics;
+        if (semantics == null)
+            return;
+
+        if (!string.IsNullOrEmpty(semantics.Description))
+            platformView.AccessibilityLabel = semantics.Description;
+
+        if (!string.IsNullOrEmpty(semantics.Hint))
+            platformView.AccessibilityHelp = semantics.Hint;
+
+        if (semantics.HeadingLevel != SemanticHeadingLevel.None)
+        {
+            // Mark as heading for VoiceOver
+            platformView.AccessibilityRole = NSAccessibilityRoles.GroupRole;
+        }
     }
 
     public static new void MapClip(IViewHandler handler, IView view)

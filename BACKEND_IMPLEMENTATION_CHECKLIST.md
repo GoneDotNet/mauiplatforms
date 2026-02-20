@@ -17,7 +17,7 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 - [x] **Platform View Type** — `NSView` (via `MacOSContainerView`, a flipped `NSView` subclass with layer backing)
 - [x] **Platform Context** — `MacOSMauiContext : IMauiContext` with scoped services, handler factory, window/app scope
 - [x] **Dispatcher** — `MacOSDispatcher : IDispatcher` + `MacOSDispatcherProvider` + `MacOSDispatcherTimer`
-- [ ] **Event System** — Native AppKit event model for user interactions (NSEvent, NSResponder chain)
+- [x] **Event System** — NSEvent/NSResponder chain used by gesture recognizers, mouse tracking areas, keyboard events
 - [x] **Handler Factory Integration** — All handlers registered via `AddMauiControlsHandlers()` in `AppHostBuilderExtensions`
 - [x] **App Host Builder Extension** — `UseMauiAppMacOS<TApp>()` wires up handlers, dispatcher, alert manager
 
@@ -28,10 +28,10 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 - [x] **Style/Attribute Application** — Opacity, IsVisible, IsEnabled, Background, FlowDirection, AutomationId, transforms, Clip, Shadow all mapped in base `MacOSViewHandler`
 
 ### AppKit Interop
-- [ ] **NSResponder Chain** — First responder management for keyboard/mouse event routing
-- [ ] **NSEvent Handling** — Mouse, keyboard, and trackpad event processing
+- [x] **NSResponder Chain** — Used by gesture recognizers, mouse events in handlers, first responder for Entry/Editor
+- [x] **NSEvent Handling** — Mouse events (click, hover, drag), keyboard events via NSTextField/NSTextView
 - [x] **NSGestureRecognizer Integration** — `GestureManager` with `NSClickGestureRecognizer`, `NSPanGestureRecognizer`, `NSTrackingArea` for pointer
-- [ ] **NSAccessibility** — VoiceOver and accessibility protocol conformance
+- [x] **NSAccessibility** — VoiceOver via SemanticScreenReader, semantic properties mapped to AccessibilityLabel/Help/Role
 
 ---
 
@@ -52,7 +52,7 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 | [~] **NavigationPage** | Partial | Push/Pop via `RequestNavigation` command works; missing transition animations, back button customization |
 | [~] **TabbedPage** | Partial | Tab switching via events; missing property mappers for tab appearance/placement |
 | [x] **FlyoutPage** | ✅ | Maps Flyout, Detail, IsPresented, FlyoutBehavior, FlyoutWidth via `NSSplitView` |
-| [ ] **Shell** | ❌ | Not implemented — no ShellHandler exists |
+| [x] **Shell** | ✅ | `ShellHandler` — NSSplitView with sidebar flyout, content area, selection, flyout behavior |
 
 ---
 
@@ -124,7 +124,7 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | [x] **NavigationPage stack** | ✅ | PushAsync, PopAsync via `RequestNavigation` command |
-| [ ] **Shell navigation** | ❌ | Shell not implemented |
+| [x] **Shell navigation** | ✅ | Shell.CurrentItem navigation, sidebar selection, flyout behavior |
 | [x] **Deep linking** | ⚠️ | Partial — requires app-level Info.plist URL scheme + NSApplicationDelegate.OpenUrls override; framework supports it via lifecycle events |
 | [x] **Back button** | ✅ | N/A on macOS (no hardware back button); NavigationPage.PopAsync handles programmatic back navigation |
 | [x] **ToolbarItems** | ✅ | `MacOSToolbarManager` manages `NSToolbar` items from `Page.ToolbarItems` |
@@ -216,10 +216,10 @@ Every handler must support these properties mapped from the base `IView` in `Mac
 
 ### Automation
 - [x] AutomationId → `NSView.AccessibilityIdentifier`
-- [ ] Semantic properties → `NSAccessibility` protocol
+- [x] Semantic properties → `NSAccessibility` protocol (AccessibilityLabel, AccessibilityHelp, AccessibilityRole)
 
 ### Animations
-- [ ] Core Animation (`CABasicAnimation`, `CAKeyframeAnimation`) or `NSAnimationContext` for smooth property transitions
+- [x] Core Animation — NSAnimationContext used for scroll, swipe, carousel transitions; MacOSTicker drives MAUI animation system
 
 ---
 
@@ -365,7 +365,7 @@ FormattedText requires special handling as a compound property using `NSAttribut
 | Category | Implemented | Total | Notes |
 |----------|-------------|-------|-------|
 | **Core Infrastructure** | 6 of 6 | 6 | All core abstractions in place including gesture integration |
-| **Pages** | 4 of 5 | 5 | Missing: Shell |
+| **Pages** | 5 of 5 | 5 | ✅ All page types implemented including Shell |
 | **Layouts** | 10 of 10 | 10 | ✅ All layouts implemented including Frame via BorderHandler |
 | **Basic Controls** | 12 of 14 | 14 | ImageButton now implemented; Label has full Padding support |
 | **Collection Controls** | 7 of 7 | 7 | ✅ All collection controls implemented |
