@@ -40,7 +40,7 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 | Control | Status | Notes |
 |---------|--------|-------|
 | [x] **Application** | ✅ | `MacOSMauiApplication : NSApplicationDelegate`, lifecycle events (DidFinishLaunching, DidBecomeActive, WillTerminate, etc.) |
-| [~] **Window** | Partial | `WindowHandler` maps Title and Content; missing min/max size constraints, position tracking, fullscreen support |
+| [~] **Window** | Partial | `WindowHandler` maps Title, Content, Width, Height, X, Y; missing min/max size constraints, fullscreen support |
 
 ---
 

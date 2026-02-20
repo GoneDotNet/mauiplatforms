@@ -51,6 +51,10 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         {
             [nameof(IWindow.Title)] = MapTitle,
             [nameof(IWindow.Content)] = MapContent,
+            [nameof(IWindow.Width)] = MapSize,
+            [nameof(IWindow.Height)] = MapSize,
+            [nameof(IWindow.X)] = MapPosition,
+            [nameof(IWindow.Y)] = MapPosition,
         };
 
     FlippedNSView? _contentContainer;
@@ -115,6 +119,38 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         // Subscribe to page-level navigation events so toolbar refreshes on every page change
         handler.ObservePageChanges(page);
         handler.RefreshToolbar();
+    }
+
+    public static void MapSize(WindowHandler handler, IWindow window)
+    {
+        if (handler.PlatformView == null)
+            return;
+
+        var width = window.Width >= 0 ? window.Width : handler.PlatformView.Frame.Width;
+        var height = window.Height >= 0 ? window.Height : handler.PlatformView.Frame.Height;
+        var frame = handler.PlatformView.Frame;
+        // NSWindow origin is bottom-left; keep the top-left corner stable
+        var newY = frame.Y + frame.Height - (nfloat)height;
+        handler.PlatformView.SetFrame(new CGRect(frame.X, newY, (nfloat)width, (nfloat)height), true);
+    }
+
+    public static void MapPosition(WindowHandler handler, IWindow window)
+    {
+        if (handler.PlatformView == null)
+            return;
+
+        if (window.X >= 0 && window.Y >= 0)
+        {
+            var screen = handler.PlatformView.Screen ?? NSScreen.MainScreen;
+            if (screen != null)
+            {
+                // Convert MAUI top-left origin to AppKit bottom-left origin
+                var frame = handler.PlatformView.Frame;
+                var screenHeight = screen.Frame.Height;
+                var newY = screenHeight - (nfloat)window.Y - frame.Height;
+                handler.PlatformView.SetFrameOrigin(new CGPoint((nfloat)window.X, newY));
+            }
+        }
     }
 
     void ObservePageChanges(IView content)
