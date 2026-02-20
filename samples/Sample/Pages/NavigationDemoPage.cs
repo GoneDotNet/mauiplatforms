@@ -112,7 +112,6 @@ public class NavigationDemoPage : ContentPage
 			Children =
 			{
 				new Label { Text = "Navigation Demo", FontSize = 24, FontAttributes = FontAttributes.Bold },
-				new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
 
 				new Border
 				{
