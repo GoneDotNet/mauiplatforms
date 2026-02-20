@@ -1,4 +1,5 @@
 using CoreGraphics;
+using CoreAnimation;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Handlers;
 using AppKit;
@@ -21,11 +22,30 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
         try
         {
             if (ViewMapper is PropertyMapper<IView, IViewHandler> mapper)
+            {
                 mapper[nameof(IView.Shadow)] = MapShadow;
+                mapper[nameof(IView.Opacity)] = MapOpacity;
+                mapper[nameof(IView.Visibility)] = MapVisibility;
+                mapper[nameof(IView.IsEnabled)] = MapIsEnabled;
+                mapper[nameof(IView.Background)] = MapBackground;
+                mapper[nameof(IView.FlowDirection)] = MapFlowDirection;
+                mapper[nameof(IView.AutomationId)] = MapAutomationId;
+                mapper[nameof(IView.Clip)] = MapClip;
+                mapper[nameof(IView.TranslationX)] = MapTransform;
+                mapper[nameof(IView.TranslationY)] = MapTransform;
+                mapper[nameof(IView.Rotation)] = MapTransform;
+                mapper[nameof(IView.RotationX)] = MapTransform;
+                mapper[nameof(IView.RotationY)] = MapTransform;
+                mapper[nameof(IView.Scale)] = MapTransform;
+                mapper[nameof(IView.ScaleX)] = MapTransform;
+                mapper[nameof(IView.ScaleY)] = MapTransform;
+                mapper[nameof(IView.AnchorX)] = MapTransform;
+                mapper[nameof(IView.AnchorY)] = MapTransform;
+            }
         }
         catch
         {
-            // Shadow mapping registration failed — non-fatal
+            // Mapping registration failed — non-fatal
         }
     }
 
@@ -37,7 +57,7 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
     {
     }
 
-    public static void MapShadow(IViewHandler handler, IView view)
+    public static new void MapShadow(IViewHandler handler, IView view)
     {
         var platformView = handler.PlatformView as NSView;
         if (platformView == null)
@@ -63,6 +83,115 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
             platformView.Layer.ShadowColor = solidPaint.Color.ToPlatformColor().CGColor;
         else
             platformView.Layer.ShadowColor = CoreGraphics.CGColor.CreateSrgb(0, 0, 0, 1);
+    }
+
+    public static new void MapOpacity(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is NSView platformView)
+            platformView.AlphaValue = (nfloat)view.Opacity;
+    }
+
+    public static new void MapVisibility(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is NSView platformView)
+            platformView.Hidden = view.Visibility != Visibility.Visible;
+    }
+
+    public static new void MapIsEnabled(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is NSControl control)
+            control.Enabled = view.IsEnabled;
+    }
+
+    public static new void MapBackground(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is not NSView platformView)
+            return;
+
+        platformView.WantsLayer = true;
+        if (platformView.Layer == null)
+            return;
+
+        if (view.Background is SolidPaint solidPaint && solidPaint.Color != null)
+            platformView.Layer.BackgroundColor = solidPaint.Color.ToPlatformColor().CGColor;
+        else if (view.Background == null)
+            platformView.Layer.BackgroundColor = null;
+    }
+
+    public static new void MapFlowDirection(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is NSView platformView)
+        {
+            platformView.UserInterfaceLayoutDirection = view.FlowDirection == FlowDirection.RightToLeft
+                ? NSUserInterfaceLayoutDirection.RightToLeft
+                : NSUserInterfaceLayoutDirection.LeftToRight;
+        }
+    }
+
+    public static new void MapAutomationId(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is NSView platformView)
+            platformView.AccessibilityIdentifier = view.AutomationId;
+    }
+
+    public static new void MapClip(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is not NSView platformView)
+            return;
+
+        platformView.WantsLayer = true;
+        if (platformView.Layer == null)
+            return;
+
+        if (view.Clip == null)
+        {
+            platformView.Layer.Mask = null;
+            return;
+        }
+
+        var bounds = platformView.Bounds;
+        var pathF = view.Clip.PathForBounds(new Rect(0, 0, bounds.Width, bounds.Height));
+        if (pathF == null)
+        {
+            platformView.Layer.Mask = null;
+            return;
+        }
+
+        var maskLayer = new CAShapeLayer();
+        maskLayer.Frame = platformView.Bounds;
+        maskLayer.Path = PathFToCGPath(pathF);
+        platformView.Layer.Mask = maskLayer;
+    }
+
+    public static void MapTransform(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is not NSView platformView)
+            return;
+
+        platformView.WantsLayer = true;
+        if (platformView.Layer == null)
+            return;
+
+        platformView.Layer.AnchorPoint = new CGPoint(view.AnchorX, view.AnchorY);
+
+        var transform = CATransform3D.Identity;
+
+        var scaleX = view.ScaleX * view.Scale;
+        var scaleY = view.ScaleY * view.Scale;
+        if (scaleX != 1 || scaleY != 1)
+            transform = transform.Scale((nfloat)scaleX, (nfloat)scaleY, 1);
+
+        if (view.Rotation != 0)
+            transform = transform.Rotate((nfloat)(view.Rotation * Math.PI / 180.0), 0, 0, 1);
+        if (view.RotationX != 0)
+            transform = transform.Rotate((nfloat)(view.RotationX * Math.PI / 180.0), 1, 0, 0);
+        if (view.RotationY != 0)
+            transform = transform.Rotate((nfloat)(view.RotationY * Math.PI / 180.0), 0, 1, 0);
+
+        if (view.TranslationX != 0 || view.TranslationY != 0)
+            transform = transform.Translate((nfloat)view.TranslationX, (nfloat)view.TranslationY, 0);
+
+        platformView.Layer.Transform = transform;
     }
 
     public override void PlatformArrange(Rect rect)
@@ -130,9 +259,16 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
 
         var minimumWidth = VirtualView.MinimumWidth;
         var minimumHeight = VirtualView.MinimumHeight;
+        var maximumWidth = VirtualView.MaximumWidth;
+        var maximumHeight = VirtualView.MaximumHeight;
 
         var finalWidth = Math.Max(IsExplicit(minimumWidth) ? minimumWidth : 0, width);
         var finalHeight = Math.Max(IsExplicit(minimumHeight) ? minimumHeight : 0, height);
+
+        if (IsExplicit(maximumWidth))
+            finalWidth = Math.Min(finalWidth, maximumWidth);
+        if (IsExplicit(maximumHeight))
+            finalHeight = Math.Min(finalHeight, maximumHeight);
 
         return new Size(finalWidth, finalHeight);
     }
@@ -149,5 +285,38 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
         if (double.IsPositiveInfinity(value))
             return 0;
         return value;
+    }
+
+    static CGPath PathFToCGPath(PathF pathF)
+    {
+        var cgPath = new CGPath();
+        var points = pathF.Points?.ToArray();
+        var segments = pathF.SegmentTypes?.ToArray();
+        if (points is null || segments is null)
+            return cgPath;
+
+        int index = 0;
+        foreach (var op in segments)
+        {
+            switch (op)
+            {
+                case PathOperation.Move:
+                    if (index < points.Length) { cgPath.MoveToPoint(points[index].X, points[index].Y); index++; }
+                    break;
+                case PathOperation.Line:
+                    if (index < points.Length) { cgPath.AddLineToPoint(points[index].X, points[index].Y); index++; }
+                    break;
+                case PathOperation.Quad:
+                    if (index + 1 < points.Length) { cgPath.AddQuadCurveToPoint(points[index].X, points[index].Y, points[index + 1].X, points[index + 1].Y); index += 2; }
+                    break;
+                case PathOperation.Cubic:
+                    if (index + 2 < points.Length) { cgPath.AddCurveToPoint(points[index].X, points[index].Y, points[index + 1].X, points[index + 1].Y, points[index + 2].X, points[index + 2].Y); index += 3; }
+                    break;
+                case PathOperation.Close:
+                    cgPath.CloseSubpath();
+                    break;
+            }
+        }
+        return cgPath;
     }
 }

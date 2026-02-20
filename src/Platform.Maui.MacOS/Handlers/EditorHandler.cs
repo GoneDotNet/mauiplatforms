@@ -38,6 +38,7 @@ public class EditorHandler : MacOSViewHandler<IEditor, EditorNSView>
             [nameof(ITextInput.Text)] = MapText,
             [nameof(ITextStyle.TextColor)] = MapTextColor,
             [nameof(ITextStyle.Font)] = MapFont,
+            [nameof(ITextStyle.CharacterSpacing)] = MapCharacterSpacing,
             [nameof(IPlaceholder.Placeholder)] = MapPlaceholder,
             [nameof(ITextInput.IsReadOnly)] = MapIsReadOnly,
             [nameof(ITextAlignment.HorizontalTextAlignment)] = MapHorizontalTextAlignment,
@@ -94,14 +95,30 @@ public class EditorHandler : MacOSViewHandler<IEditor, EditorNSView>
 
     public static void MapFont(EditorHandler handler, IEditor editor)
     {
-        var fontSize = editor.Font.Size > 0 ? (nfloat)editor.Font.Size : (nfloat)13.0;
-        handler.PlatformView.TextView.Font = NSFont.SystemFontOfSize(fontSize);
+        handler.PlatformView.TextView.Font = editor.Font.ToNSFont();
     }
 
     public static void MapPlaceholder(EditorHandler handler, IEditor editor)
     {
         // NSTextView doesn't have built-in placeholder support.
-        // A production impl would overlay a placeholder label; skipped for simplicity.
+        // Use the PlaceholderString on the underlying text view's enclosing scroll view or
+        // overlay a label. For now, set the accessibility placeholder.
+        if (editor is IPlaceholder placeholder)
+            handler.PlatformView.TextView.AccessibilityPlaceholderValue = placeholder.Placeholder;
+    }
+
+    public static void MapCharacterSpacing(EditorHandler handler, IEditor editor)
+    {
+        if (editor.CharacterSpacing != 0)
+        {
+            var text = handler.PlatformView.TextView.Value ?? string.Empty;
+            var storage = handler.PlatformView.TextView.TextStorage;
+            if (storage != null && text.Length > 0)
+            {
+                storage.AddAttribute(NSStringAttributeKey.KerningAdjustment,
+                    NSNumber.FromDouble(editor.CharacterSpacing), new NSRange(0, text.Length));
+            }
+        }
     }
 
     public static void MapIsReadOnly(EditorHandler handler, IEditor editor)

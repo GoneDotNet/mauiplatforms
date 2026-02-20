@@ -1,3 +1,4 @@
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Handlers;
 using AppKit;
 
@@ -10,6 +11,8 @@ public partial class ContentPageHandler : MacOSViewHandler<IContentView, MacOSCo
         {
             [nameof(IContentView.Content)] = MapContent,
             [nameof(IView.Background)] = MapBackground,
+            [nameof(ContentPage.MenuBarItems)] = MapMenuBarItems,
+            [nameof(ContentPage.Title)] = MapTitle,
         };
 
     public ContentPageHandler() : base(Mapper)
@@ -72,5 +75,21 @@ public partial class ContentPageHandler : MacOSViewHandler<IContentView, MacOSCo
             handler.PlatformView.Layer.BackgroundColor = solidPaint.Color.ToPlatformColor().CGColor;
         else
             handler.PlatformView.Layer.BackgroundColor = NSColor.ControlBackground.CGColor;
+    }
+
+    public static void MapMenuBarItems(ContentPageHandler handler, IContentView page)
+    {
+        if (page is ContentPage contentPage)
+            MenuBarManager.UpdateMenuBar(contentPage.MenuBarItems);
+    }
+
+    public static void MapTitle(ContentPageHandler handler, IContentView page)
+    {
+        if (page is not ITitledElement titled)
+            return;
+
+        var window = handler.PlatformView.Window;
+        if (window != null && !string.IsNullOrEmpty(titled.Title))
+            window.Title = titled.Title;
     }
 }
