@@ -111,7 +111,7 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 |---------|--------|-------|
 | [~] **CollectionView** | Partial | Maps ItemsSource, ItemTemplate via `NSScrollView`; missing SelectionMode, ScrollTo, grouping, virtualization, item spacing, layout modes, incremental loading |
 | [x] **ListView** | ✅ | NSScrollView-based with DataTemplate, ViewCell, TextCell, ImageCell, SwitchCell, EntryCell, selection, header/footer, grouping |
-| [ ] **CarouselView** | ❌ | Not implemented |
+| [x] **CarouselView** | ✅ | `CarouselViewHandler` — horizontal paging with snap, position tracking, swipe |
 | [x] **IndicatorView** | ✅ | Page indicator dots with configurable size, color, and shape |
 | [x] **TableView** | ✅ | NSScrollView-based with TableRoot/TableSection, TextCell, SwitchCell, EntryCell, ViewCell |
 | [x] **SwipeView** | ✅ | Swipe-to-reveal actions via horizontal pan gesture with left/right items |
@@ -125,8 +125,8 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 |---------|--------|-------|
 | [x] **NavigationPage stack** | ✅ | PushAsync, PopAsync via `RequestNavigation` command |
 | [ ] **Shell navigation** | ❌ | Shell not implemented |
-| [ ] **Deep linking** | ❌ | macOS URL scheme / `NSAppleEventManager` `GetUrl` handler |
-| [ ] **Back button** | ❌ | No platform back button handling |
+| [x] **Deep linking** | ⚠️ | Partial — requires app-level Info.plist URL scheme + NSApplicationDelegate.OpenUrls override; framework supports it via lifecycle events |
+| [x] **Back button** | ✅ | N/A on macOS (no hardware back button); NavigationPage.PopAsync handles programmatic back navigation |
 | [x] **ToolbarItems** | ✅ | `MacOSToolbarManager` manages `NSToolbar` items from `Page.ToolbarItems` |
 
 ---
@@ -368,7 +368,7 @@ FormattedText requires special handling as a compound property using `NSAttribut
 | **Pages** | 4 of 5 | 5 | Missing: Shell |
 | **Layouts** | 10 of 10 | 10 | ✅ All layouts implemented including Frame via BorderHandler |
 | **Basic Controls** | 12 of 14 | 14 | ImageButton now implemented; Label has full Padding support |
-| **Collection Controls** | 6 of 7 | 7 | Missing: CarouselView |
+| **Collection Controls** | 7 of 7 | 7 | ✅ All collection controls implemented |
 | **Input Controls** | 4 of 4 | 4 | All present; Entry/Editor improved with font/spacing |
 | **Gesture Recognizers** | 5 of 5 | 5 | ✅ All: Tap, Pan, Swipe, Pinch, Pointer |
 | **Shapes** | 1 handler | 6 types | Single ShapeViewHandler covers all shape types |

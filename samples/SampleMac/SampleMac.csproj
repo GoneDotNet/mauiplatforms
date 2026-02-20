@@ -114,6 +114,9 @@
         <Compile Include="..\Sample\Pages\TableViewPage.cs">
             <Link>Pages\TableViewPage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\Pages\CarouselViewPage.cs">
+            <Link>Pages\CarouselViewPage.cs</Link>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>
