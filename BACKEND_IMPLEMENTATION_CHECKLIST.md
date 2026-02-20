@@ -65,7 +65,7 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 | [x] **Grid** | ✅ | Row/column definitions, spans, spacing — all computed by MAUI layout manager |
 | [x] **FlexLayout** | ✅ | Direction, Wrap, JustifyContent, AlignItems — MAUI layout manager handles positioning |
 | [x] **AbsoluteLayout** | ✅ | Absolute and proportional positioning — MAUI layout manager computes bounds |
-| [~] **ScrollView** | Partial | Maps Content, Orientation, ScrollBarVisibility, ContentSize via `NSScrollView`; ScrollToAsync with animated scrolling via `NSAnimationContext`; missing scroll position tracking, `Scrolled` event |
+| [x] **ScrollView** | ✅ | Maps Content, Orientation, ScrollBarVisibility, ContentSize via `NSScrollView`; ScrollToAsync with animated scrolling via `NSAnimationContext`; `Scrolled` event fires via `SetScrolledPosition` on `BoundsChangedNotification` |
 | [x] **ContentView** | ✅ | Simple content wrapper with Background support |
 | [x] **Border** | ✅ | Full stroke/shape support — Stroke, StrokeThickness, StrokeShape, StrokeLineCap, StrokeLineJoin, StrokeDashPattern |
 | [ ] **Frame** | ❌ | Legacy border container — no dedicated handler (may fall back to Border) |
@@ -84,7 +84,7 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 | [~] **Editor** | Partial | Maps Text, TextColor, Font (family/size/bold), IsReadOnly, HorizontalTextAlignment, MaxLength, CharacterSpacing, Placeholder (accessibility); missing AutoSize |
 | [~] **Switch** | Partial | Maps IsOn via `NSSwitch`; TrackColor/ThumbColor limited by AppKit control |
 | [x] **CheckBox** | ✅ | Maps IsChecked, Foreground via `NSButton` with checkbox style |
-| [~] **RadioButton** | Partial | Maps IsChecked, TextColor, Content text; missing GroupName mutual exclusion, ControlTemplate support |
+| [~] **RadioButton** | Partial | Maps IsChecked, TextColor, Content text; GroupName mutual exclusion handled by MAUI's cross-platform `RadioButtonGroup`; missing ControlTemplate support |
 | [~] **Slider** | Partial | Maps Value, Minimum, Maximum via `NSSlider`; MinimumTrackColor, MaximumTrackColor, ThumbColor limited by AppKit |
 | [x] **Stepper** | ✅ | Maps Value, Minimum, Maximum, Interval via `NSStepper` |
 | [~] **ProgressBar** | Partial | Maps Progress via `NSProgressIndicator`; ProgressColor via `CIColorMonochrome` content filter |

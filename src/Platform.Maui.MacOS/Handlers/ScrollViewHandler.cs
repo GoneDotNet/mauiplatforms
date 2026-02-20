@@ -87,7 +87,8 @@ public partial class ScrollViewHandler : MacOSViewHandler<IScrollView, NSScrollV
             return;
 
         var origin = PlatformView.ContentView.Bounds.Location;
-        VirtualView.ScrollFinished();
+        if (VirtualView is Microsoft.Maui.Controls.ScrollView scrollView)
+            scrollView.SetScrolledPosition(origin.X, origin.Y);
     }
 
     public static void MapRequestScrollTo(ScrollViewHandler handler, IScrollView scrollView, object? args)
