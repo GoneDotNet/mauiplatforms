@@ -111,7 +111,6 @@ public class NavigationDemoPage : ContentPage
 			Padding = new Thickness(24),
 			Children =
 			{
-				new Label { Text = "Navigation Demo", FontSize = 24, FontAttributes = FontAttributes.Bold },
 
 				new Border
 				{

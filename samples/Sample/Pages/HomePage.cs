@@ -30,8 +30,6 @@ public class HomePage : ContentPage
 						HorizontalTextAlignment = TextAlignment.Center,
 						TextColor = Colors.Gray,
 					},
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					new Label
 					{
 						Text = "This sample app demonstrates the Microsoft.Maui.Platform.MacOS backend — " +

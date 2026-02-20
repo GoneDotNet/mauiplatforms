@@ -91,9 +91,6 @@ public class ListViewPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "ListView", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					new Label { Text = "ViewCell with DataTemplate", FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Colors.DarkSlateGray },
 					new Border
 					{

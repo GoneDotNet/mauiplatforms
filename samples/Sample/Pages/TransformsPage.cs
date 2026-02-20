@@ -154,9 +154,6 @@ public class TransformsPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Transforms & Animations", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					statusLabel,
 
 					SectionHeader("Basic Transforms"),

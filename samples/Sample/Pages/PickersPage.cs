@@ -53,9 +53,6 @@ public class PickersPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Pickers & Search", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					new Label { Text = "DatePicker", FontSize = 16, FontAttributes = FontAttributes.Bold },
 					datePicker,
 					dateLabel,

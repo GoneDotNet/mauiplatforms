@@ -17,9 +17,6 @@ public class GraphicsPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "GraphicsView (CoreGraphics)", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					new Label { Text = "Basic Shapes", FontSize = 16, FontAttributes = FontAttributes.Bold },
 					new GraphicsView { HeightRequest = 140, Drawable = new ShapesDrawable() },
 

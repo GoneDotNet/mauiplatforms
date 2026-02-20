@@ -48,22 +48,15 @@ public class TableViewPage : ContentPage
 			RowDefinitions =
 			{
 				new RowDefinition(GridLength.Auto),
-				new RowDefinition(GridLength.Auto),
-				new RowDefinition(GridLength.Auto),
 				new RowDefinition(GridLength.Star),
 			},
 			Children =
 			{
-				new Label { Text = "TableView", FontSize = 24, FontAttributes = FontAttributes.Bold },
 			}
 		};
 
-		var divider = new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 };
-		Grid.SetRow(divider, 1);
-		((Grid)Content).Children.Add(divider);
-
 		var subtitle = new Label { Text = "Settings-style grouped table with various cell types:", FontSize = 14, TextColor = Colors.Gray };
-		Grid.SetRow(subtitle, 2);
+		Grid.SetRow(subtitle, 0);
 		((Grid)Content).Children.Add(subtitle);
 
 		var border = new Border
@@ -73,7 +66,7 @@ public class TableViewPage : ContentPage
 			StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
 			Content = tableView,
 		};
-		Grid.SetRow(border, 3);
+		Grid.SetRow(border, 1);
 		((Grid)Content).Children.Add(border);
 	}
 }

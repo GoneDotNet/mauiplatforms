@@ -37,10 +37,6 @@ public class BatteryNetworkPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Battery & Network", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Label { Text = "Live system status via IOKit and SystemConfiguration", FontSize = 14, TextColor = Colors.Gray },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					refreshButton,
 
 					SectionHeader("🔋 Battery"),

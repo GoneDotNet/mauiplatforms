@@ -18,9 +18,6 @@ public class ShapesPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "MAUI Shape Views", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					SectionHeader("Rectangle"),
 					new Rectangle
 					{

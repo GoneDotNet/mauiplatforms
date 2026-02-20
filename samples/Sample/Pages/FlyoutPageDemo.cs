@@ -67,7 +67,6 @@ public class FlyoutPageDemo : ContentPage
 			Children =
 			{
 				_detailTitle,
-				new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
 				_detailContent,
 			}
 		};
@@ -91,7 +90,6 @@ public class FlyoutPageDemo : ContentPage
 					TextColor = Colors.Gray,
 					Padding = new Thickness(24, 0),
 				},
-				new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0, Margin = new Thickness(24, 0) },
 				new HorizontalStackLayout
 				{
 					Spacing = 0,

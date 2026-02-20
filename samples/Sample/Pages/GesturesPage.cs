@@ -161,9 +161,6 @@ public class GesturesPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Gesture Recognizers", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					SectionHeader("TapGestureRecognizer"),
 					tapLabel,
 					tapBox,

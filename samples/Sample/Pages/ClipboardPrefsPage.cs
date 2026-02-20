@@ -112,10 +112,6 @@ public class ClipboardPrefsPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Clipboard & Storage", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Label { Text = "Data transfer, preferences, and secure storage", FontSize = 14, TextColor = Colors.Gray },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					SectionHeader("📋 Clipboard"),
 					clipboardEntry,
 					new HorizontalStackLayout { Spacing = 8, Children = { copyButton, pasteButton } },

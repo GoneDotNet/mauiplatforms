@@ -69,9 +69,6 @@ public class DeviceInfoPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Device & App Info", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Label { Text = "Information from MAUI Essentials interfaces", FontSize = 14, TextColor = Colors.Gray },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
 					infoStack,
 				}
 			}

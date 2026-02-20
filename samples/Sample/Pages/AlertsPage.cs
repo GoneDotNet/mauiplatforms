@@ -78,9 +78,6 @@ public class AlertsPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Alerts & Dialogs", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					new Border
 					{
 						Stroke = Colors.DodgerBlue,

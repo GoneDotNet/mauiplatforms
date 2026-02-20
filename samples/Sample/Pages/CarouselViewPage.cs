@@ -138,8 +138,6 @@ public class CarouselViewPage : ContentPage
 			Padding = new Thickness(24),
 			Children =
 			{
-				new Label { Text = "CarouselView", FontSize = 24, FontAttributes = FontAttributes.Bold },
-				new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
 				carousel,
 				dotsLayout,
 				positionLabel,

@@ -20,7 +20,6 @@ public class TabbedPageDemo : TabbedPage
 					Padding = new Thickness(24),
 					Children =
 					{
-						new Label { Text = "TabbedPage Overview", FontSize = 24, FontAttributes = FontAttributes.Bold },
 						new Label { Text = "This is a real TabbedPage rendered with native NSTabView.", FontSize = 13, TextColor = Colors.Gray },
 						new Border { HeightRequest = 1, BackgroundColor = Colors.LightGray, StrokeThickness = 0 },
 						new Label { Text = "✅ Native NSTabView tab rendering", FontSize = 14 },

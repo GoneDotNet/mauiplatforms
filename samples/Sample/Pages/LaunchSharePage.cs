@@ -86,10 +86,6 @@ public class LaunchSharePage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Launch, Share & Files", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Label { Text = "Open URLs, share content, pick files", FontSize = 14, TextColor = Colors.Gray },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					statusLabel,
 
 					SectionHeader("🌐 Browser & Launcher"),

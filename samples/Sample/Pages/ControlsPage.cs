@@ -57,9 +57,6 @@ public class ControlsPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Interactive Controls", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Border { HeightRequest = 2, BackgroundColor = Colors.DodgerBlue, StrokeThickness = 0 },
-
 					SectionHeader("Button & ProgressBar"),
 					button,
 					clickLabel,
