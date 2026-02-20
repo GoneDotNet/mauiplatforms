@@ -44,11 +44,16 @@ public class MacOSGraphicsView : NSView
         if (context == null)
             return;
 
-        var rect = new RectF(
-            (float)dirtyRect.X, (float)dirtyRect.Y,
-            (float)dirtyRect.Width, (float)dirtyRect.Height);
+        // Reset clip to full bounds — AppKit may clip to dirtyRect which
+        // can be a partial region, causing drawables to be clipped.
+        var bounds = Bounds;
+        context.SaveState();
+        context.ClipToRect(bounds);
 
+        var rect = new RectF(0, 0, (float)bounds.Width, (float)bounds.Height);
         _renderer.Draw(context, rect);
+
+        context.RestoreState();
     }
 
     public override void SetFrameSize(CGSize newSize)
