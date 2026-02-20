@@ -125,17 +125,29 @@ public partial class TableViewHandler : MacOSViewHandler<TableView, NSScrollView
 				AddSeparator(Colors.LightGray);
 			firstSection = false;
 
-			// Section header
-			var headerLabel = new Label
+			// Section header — use native NSTextField for reliability
+			var headerView = new NSTextField
 			{
-				Text = section.Title ?? string.Empty,
-				FontSize = 12,
-				FontAttributes = FontAttributes.Bold,
-				TextColor = Colors.Gray,
-				Padding = new Thickness(12, 10, 12, 4),
-				BackgroundColor = Color.FromArgb("#F5F5F5"),
+				StringValue = section.Title ?? string.Empty,
+				Editable = false,
+				Bezeled = false,
+				DrawsBackground = true,
+				BackgroundColor = NSColor.FromRgba(245, 245, 245, 255),
+				TextColor = NSColor.Gray,
+				Font = NSFont.BoldSystemFontOfSize(12),
 			};
-			AddView(headerLabel);
+			// Wrap in a container with padding
+			var headerContainer = new NSView();
+			headerContainer.WantsLayer = true;
+			headerContainer.Layer!.BackgroundColor = NSColor.FromRgba(245, 245, 245, 255).CGColor;
+			headerView.SizeToFit();
+			var textHeight = headerView.Frame.Height;
+			var containerHeight = textHeight + 14; // 10pt top + 4pt bottom padding
+			headerContainer.Frame = new CGRect(0, 0, 400, containerHeight);
+			headerView.Frame = new CGRect(12, 4, 400, textHeight);
+			headerContainer.AddSubview(headerView);
+			_itemViews.Add(headerContainer);
+			_itemsContainer!.AddSubview(headerContainer);
 
 			AddSeparator(Colors.LightGray);
 
