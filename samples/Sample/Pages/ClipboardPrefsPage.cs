@@ -112,10 +112,6 @@ public class ClipboardPrefsPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Clipboard & Storage", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Label { Text = "Data transfer, preferences, and secure storage", FontSize = 14, TextColor = Colors.Gray },
-					new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
-
 					SectionHeader("📋 Clipboard"),
 					clipboardEntry,
 					new HorizontalStackLayout { Spacing = 8, Children = { copyButton, pasteButton } },
@@ -124,14 +120,14 @@ public class ClipboardPrefsPage : ContentPage
 					Separator(),
 
 					SectionHeader("⚙️ Preferences"),
-					new HorizontalStackLayout { Spacing = 8, Children = { prefsKey, prefsValue } },
+					KeyValueRow(prefsKey, prefsValue),
 					new HorizontalStackLayout { Spacing = 8, Children = { saveButton, loadButton, clearButton } },
 					prefsResult,
 
 					Separator(),
 
 					SectionHeader("🔐 Secure Storage (Keychain)"),
-					new HorizontalStackLayout { Spacing = 8, Children = { secureKey, secureValue } },
+					KeyValueRow(secureKey, secureValue),
 					new HorizontalStackLayout { Spacing = 8, Children = { secSaveButton, secLoadButton } },
 					secureResult,
 				}
@@ -144,5 +140,19 @@ public class ClipboardPrefsPage : ContentPage
 		Text = text, FontSize = 18, FontAttributes = FontAttributes.Bold,
 		Margin = new Thickness(0, 8, 0, 4),
 	};
-	static BoxView Separator() => new() { HeightRequest = 1, Color = Colors.LightGray, Margin = new Thickness(0, 4) };
+	static Border Separator() => new() { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0, Margin = new Thickness(0, 4) };
+
+	static Grid KeyValueRow(View left, View right)
+	{
+		var grid = new Grid
+		{
+			ColumnDefinitions = { new ColumnDefinition(new GridLength(1, GridUnitType.Star)), new ColumnDefinition(new GridLength(1, GridUnitType.Star)) },
+			ColumnSpacing = 8,
+		};
+		Grid.SetColumn(left, 0);
+		Grid.SetColumn(right, 1);
+		grid.Children.Add(left);
+		grid.Children.Add(right);
+		return grid;
+	}
 }

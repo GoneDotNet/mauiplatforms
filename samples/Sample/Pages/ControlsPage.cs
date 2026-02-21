@@ -57,9 +57,6 @@ public class ControlsPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Interactive Controls", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
-
 					SectionHeader("Button & ProgressBar"),
 					button,
 					clickLabel,
@@ -122,8 +119,8 @@ public class ControlsPage : ContentPage
 		Text = text,
 		FontSize = 16,
 		FontAttributes = FontAttributes.Bold,
-		TextColor = Colors.DarkSlateGray,
+		TextColor = Colors.CornflowerBlue,
 	};
 
-	static BoxView Separator() => new() { HeightRequest = 1, Color = Colors.LightGray };
+	static Border Separator() => new() { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0 };
 }

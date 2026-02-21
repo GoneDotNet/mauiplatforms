@@ -39,9 +39,14 @@ public partial class ActivityIndicatorHandler : MacOSViewHandler<IActivityIndica
         if (activityIndicator.Color != null)
         {
             handler.PlatformView.WantsLayer = true;
-            handler.PlatformView.ContentFilters = [];
-            // NSProgressIndicator doesn't directly support color tinting;
-            // use a content filter or appearance. For now, use the default.
+            var filter = new CoreImage.CIColorMonochrome();
+            filter.Color = CoreImage.CIColor.FromCGColor(activityIndicator.Color.ToPlatformColor().CGColor);
+            filter.Intensity = 1.0f;
+            handler.PlatformView.ContentFilters = new CoreImage.CIFilter[] { filter };
+        }
+        else
+        {
+            handler.PlatformView.ContentFilters = Array.Empty<CoreImage.CIFilter>();
         }
     }
 }

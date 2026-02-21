@@ -112,6 +112,14 @@ public partial class ImageHandler : MacOSViewHandler<IImage, NSImageView>
                 imageSourcePart.UpdateIsLoading(false);
             }
         }
+        else if (source is IStreamImageSource streamImageSource)
+        {
+            LoadFromStream(streamImageSource, imageSourcePart);
+        }
+        else if (source is IFontImageSource fontImageSource)
+        {
+            LoadFromFontGlyph(fontImageSource, imageSourcePart);
+        }
         else
         {
             PlatformView.Image = null;
@@ -139,5 +147,40 @@ public partial class ImageHandler : MacOSViewHandler<IImage, NSImageView>
         {
             imageSourcePart.UpdateIsLoading(false);
         }
+    }
+
+    async void LoadFromStream(IStreamImageSource streamSource, IImageSourcePart imageSourcePart)
+    {
+        try
+        {
+            var stream = await streamSource.GetStreamAsync(CancellationToken.None);
+            if (stream != null)
+            {
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                var nsData = NSData.FromArray(ms.ToArray());
+                var nsImage = new NSImage(nsData);
+
+                if (PlatformView != null)
+                    PlatformView.Image = nsImage;
+
+                stream.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to load image from stream: {ex.Message}");
+        }
+        finally
+        {
+            imageSourcePart.UpdateIsLoading(false);
+        }
+    }
+
+    void LoadFromFontGlyph(IFontImageSource fontImageSource, IImageSourcePart imageSourcePart)
+    {
+        var image = FontImageSourceHelper.CreateImage(fontImageSource, MauiContext);
+        PlatformView.Image = image;
+        imageSourcePart.UpdateIsLoading(false);
     }
 }

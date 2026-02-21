@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.ApplicationModel.DataTransfer;
+using Microsoft.Maui.Accessibility;
 using Microsoft.Maui.Devices;
+using Microsoft.Maui.Devices.Sensors;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Media;
 using Microsoft.Maui.Networking;
@@ -30,6 +32,10 @@ public static class EssentialsExtensions
         builder.Services.TryAddSingleton<IBrowser, BrowserImplementation>();
         builder.Services.TryAddSingleton<IShare, ShareImplementation>();
         builder.Services.TryAddSingleton<ILauncher, LauncherImplementation>();
+        builder.Services.TryAddSingleton<IMap, MapImplementation>();
+        builder.Services.TryAddSingleton<IVibration, VibrationImplementation>();
+        builder.Services.TryAddSingleton<ISemanticScreenReader, SemanticScreenReaderImplementation>();
+        builder.Services.TryAddSingleton<IGeolocation, GeolocationImplementation>();
 
         SetEssentialsDefaults();
 
@@ -53,6 +59,10 @@ public static class EssentialsExtensions
         SetStaticField(typeof(Browser), "defaultImplementation", new BrowserImplementation());
         SetStaticField(typeof(Share), "defaultImplementation", new ShareImplementation());
         SetStaticField(typeof(Launcher), "defaultImplementation", new LauncherImplementation());
+        SetStaticField(typeof(ApplicationModel.Map), "defaultImplementation", new MapImplementation());
+        SetStaticField(typeof(Vibration), "defaultImplementation", new VibrationImplementation());
+        SetStaticField(typeof(SemanticScreenReader), "defaultImplementation", new SemanticScreenReaderImplementation());
+        SetStaticField(typeof(Geolocation), "defaultImplementation", new GeolocationImplementation());
     }
 
     static void SetStaticField(Type type, string fieldName, object value)

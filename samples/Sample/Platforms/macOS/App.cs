@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
+using Microsoft.Maui.Platform.MacOS;
 using Sample.Pages;
 
 namespace Sample;
@@ -20,80 +21,123 @@ class MacOSApp : Application
 	}
 }
 
-class MainShell : FlyoutPage
+class MainShell : Shell
 {
-	private readonly (string name, Func<Page> factory)[] _pages =
-	[
-		("🏠 Home", () => new HomePage()),
-		("🎛️ Controls", () => new ControlsPage()),
-		("📅 Pickers & Search", () => new PickersPage()),
-		("📐 Layouts", () => new LayoutsPage()),
-		("💬 Alerts & Dialogs", () => new AlertsPage()),
-		("📋 Collection View", () => new Pages.CollectionViewPage()),
-		("🎨 Graphics", () => new GraphicsPage()),
-		("📱 Device & App Info", () => new DeviceInfoPage()),
-		("🔋 Battery & Network", () => new BatteryNetworkPage()),
-		("📋 Clipboard & Storage", () => new ClipboardPrefsPage()),
-		("🚀 Launch & Share", () => new LaunchSharePage()),
-#if MACAPP
-		("🌐 Blazor Hybrid", () => new Pages.BlazorPage()),
-#endif
-		("🧭 Navigation", () => new NavigationPage(new NavigationDemoPage())),
-		("📑 TabbedPage", () => new TabbedPageDemo()),
-		("📂 FlyoutPage", () => new Pages.FlyoutPageDemo()),
-		("🗺️ Map", () => new Pages.MapPage()),
-	];
-
 	public MainShell()
 	{
-		Title = "Microsoft.Maui.Platform.MacOS Demo";
+		Title = "macOS Demo App";
+		FlyoutBehavior = FlyoutBehavior.Locked;
+		MacOSShell.SetUseNativeSidebar(this, true);
 
-		var menuStack = new VerticalStackLayout { Spacing = 0 };
+		// General
+		var general = new FlyoutItem { Title = "General" };
+		general.Items.Add(MakeContent("Home", "home", "house.fill", typeof(HomePage)));
+		general.Items.Add(MakeContent("Controls", "controls", "slider.horizontal.3", typeof(ControlsPage)));
+		general.Items.Add(MakeContent("RadioButton", "rbdemo", "circle.inset.filled", typeof(RadioButtonPage)));
+		general.Items.Add(MakeContent("Pickers & Search", "pickers", "calendar", typeof(PickersPage)));
+		general.Items.Add(MakeContent("Fonts", "fonts", "textformat", typeof(FontsPage)));
+		general.Items.Add(MakeContent("Formatted Text", "formattedtext", "text.badge.star", typeof(FormattedTextPage)));
+		general.Items.Add(MakeContent("Layouts", "layouts", "rectangle.3.group", typeof(LayoutsPage)));
+		general.Items.Add(MakeContent("Alerts & Dialogs", "alerts", "bubble.left.and.bubble.right", typeof(AlertsPage)));
+		Items.Add(general);
 
-		menuStack.Children.Add(new Label
-		{
-			Text = "🍎 Microsoft.Maui.Platform.MacOS",
-			FontSize = 20,
-			FontAttributes = FontAttributes.Bold,
-			TextColor = Colors.DodgerBlue,
-			Padding = new Thickness(16, 20, 16, 4),
-		});
-		menuStack.Children.Add(new Label
-		{
-			Text = "macOS Demo App",
-			FontSize = 12,
-			TextColor = Colors.Gray,
-			Padding = new Thickness(16, 0, 16, 12),
-		});
-		menuStack.Children.Add(new BoxView { HeightRequest = 1, Color = Colors.LightGray });
+		// Lists & Collections
+		var lists = new FlyoutItem { Title = "Lists & Collections" };
+		var cvSection = new ShellSection { Title = "Collection View" };
+		MacOSShell.SetSystemImage(cvSection, "square.grid.2x2");
+		cvSection.Items.Add(new ShellContent { Title = "Vertical", Route = "cv_vertical", ContentTemplate = new DataTemplate(typeof(VerticalListTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "Horizontal", Route = "cv_horizontal", ContentTemplate = new DataTemplate(typeof(HorizontalListTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "Grid V", Route = "cv_gridv", ContentTemplate = new DataTemplate(typeof(VerticalGridTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "Grid H", Route = "cv_gridh", ContentTemplate = new DataTemplate(typeof(HorizontalGridTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "Grouped", Route = "cv_grouped", ContentTemplate = new DataTemplate(typeof(GroupedTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "Templates", Route = "cv_templates", ContentTemplate = new DataTemplate(typeof(TemplateSelectorTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "Selection", Route = "cv_selection", ContentTemplate = new DataTemplate(typeof(SelectionTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "10K Items", Route = "cv_large", ContentTemplate = new DataTemplate(typeof(LargeListTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "EmptyView", Route = "cv_empty", ContentTemplate = new DataTemplate(typeof(EmptyViewTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "Header/Footer", Route = "cv_headerfooter", ContentTemplate = new DataTemplate(typeof(HeaderFooterTab)) });
+		cvSection.Items.Add(new ShellContent { Title = "ScrollTo", Route = "cv_scrollto", ContentTemplate = new DataTemplate(typeof(ScrollToTab)) });
+		lists.Items.Add(cvSection);
+		lists.Items.Add(MakeContent("CarouselView", "carouselview", "rectangle.stack", typeof(CarouselViewPage)));
+		lists.Items.Add(MakeContent("ListView", "listview", "list.bullet", typeof(ListViewPage)));
+		lists.Items.Add(MakeContent("TableView", "tableview", "tablecells", typeof(TableViewPage)));
+		Items.Add(lists);
 
-		foreach (var (name, factory) in _pages)
-		{
-			var btn = new Button
-			{
-				Text = name,
-				FontSize = 14,
-				HorizontalOptions = LayoutOptions.Fill,
-			};
-			var capturedFactory = factory;
-			btn.Clicked += (s, e) =>
-			{
-				var page = capturedFactory();
-				if (page is ContentPage cp)
-					Detail = new NavigationPage(cp);
-				else
-					Detail = page;
-			};
-			menuStack.Children.Add(btn);
-		}
+		// Drawing & Visual
+		var drawing = new FlyoutItem { Title = "Drawing & Visual" };
+		drawing.Items.Add(MakeContent("Graphics", "graphics", "paintbrush", typeof(GraphicsPage)));
+		drawing.Items.Add(MakeContent("Gestures", "gestures", "hand.tap", typeof(GesturesPage)));
+		drawing.Items.Add(MakeContent("Shapes", "shapes", "star", typeof(ShapesPage)));
+		drawing.Items.Add(MakeContent("Transforms", "transforms", "arrow.triangle.2.circlepath", typeof(TransformsPage)));
+		Items.Add(drawing);
 
-		Flyout = new ContentPage
+		// Platform
+		var platform = new FlyoutItem { Title = "Platform" };
+		platform.Items.Add(MakeContent("WebView", "webview", "globe", typeof(WebViewPage)));
+		platform.Items.Add(MakeContent("Device & App Info", "deviceinfo", "iphone", typeof(DeviceInfoPage)));
+		platform.Items.Add(MakeContent("Battery & Network", "battery", "battery.100", typeof(BatteryNetworkPage)));
+		platform.Items.Add(MakeContent("Clipboard & Storage", "clipboard", "doc.on.clipboard", typeof(ClipboardPrefsPage)));
+		platform.Items.Add(MakeContent("Launch & Share", "launch", "square.and.arrow.up", typeof(LaunchSharePage)));
+#if MACAPP
+		platform.Items.Add(MakeContent("Blazor Hybrid", "blazor", "network", typeof(BlazorPage)));
+#endif
+		Items.Add(platform);
+
+		// Navigation
+		var navigation = new FlyoutItem { Title = "Navigation" };
+		navigation.Items.Add(MakeContent("Navigation Demo", "navigation", "arrow.triangle.turn.up.right.diamond", typeof(NavigationDemoPage)));
+		navigation.Items.Add(MakeContent("TabbedPage", "tabbedpage", "rectangle.split.3x1", typeof(TabbedPageDemoShellPage)));
+		navigation.Items.Add(MakeContent("FlyoutPage", "flyoutpage", "sidebar.left", typeof(FlyoutPageDemoShellPage)));
+		navigation.Items.Add(MakeContent("Map", "map", "map", typeof(MapPage)));
+		Items.Add(navigation);
+	}
+
+	static ShellContent MakeContent(string title, string route, string systemImage, Type pageType)
+	{
+		var content = new ShellContent
 		{
-			Title = "Menu",
-			Content = new ScrollView { Content = menuStack },
+			Title = title,
+			Route = route,
+			ContentTemplate = new DataTemplate(pageType),
 		};
+		MacOSShell.SetSystemImage(content, systemImage);
+		return content;
+	}
+}
 
-		Detail = new NavigationPage(new HomePage());
-		IsPresented = true;
+class TabbedPageDemoShellPage : ContentPage
+{
+	public TabbedPageDemoShellPage()
+	{
+		Title = "TabbedPage";
+		Content = new VerticalStackLayout
+		{
+			VerticalOptions = LayoutOptions.Center,
+			HorizontalOptions = LayoutOptions.Center,
+			Spacing = 12,
+			Children =
+			{
+				new Label { Text = "TabbedPage Demo", FontSize = 20, FontAttributes = FontAttributes.Bold, HorizontalTextAlignment = TextAlignment.Center },
+				new Button { Text = "Open TabbedPage Demo", Command = new Command(async () => await Navigation.PushAsync(new TabbedPageDemo())) },
+			}
+		};
+	}
+}
+
+class FlyoutPageDemoShellPage : ContentPage
+{
+	public FlyoutPageDemoShellPage()
+	{
+		Title = "FlyoutPage";
+		Content = new VerticalStackLayout
+		{
+			VerticalOptions = LayoutOptions.Center,
+			HorizontalOptions = LayoutOptions.Center,
+			Spacing = 12,
+			Children =
+			{
+				new Label { Text = "FlyoutPage Demo", FontSize = 20, FontAttributes = FontAttributes.Bold, HorizontalTextAlignment = TextAlignment.Center },
+				new Button { Text = "Open FlyoutPage Demo", Command = new Command(async () => await Navigation.PushAsync(new FlyoutPageDemo())) },
+			}
+		};
 	}
 }

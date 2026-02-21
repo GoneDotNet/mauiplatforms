@@ -227,10 +227,11 @@ public class EssentialsPage : ContentPage
         Text = ""
     };
 #else
-    static View CreateFocusGuide() => new BoxView
+    static View CreateFocusGuide() => new Border
     {
         HeightRequest = 1,
-        Opacity = 0
+        Opacity = 0,
+        StrokeThickness = 0,
     };
 #endif
 }

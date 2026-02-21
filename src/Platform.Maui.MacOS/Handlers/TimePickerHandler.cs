@@ -81,6 +81,15 @@ public class TimePickerHandler : MacOSViewHandler<ITimePicker, NSDatePicker>
 
     public static void MapFormat(TimePickerHandler handler, ITimePicker timePicker)
     {
-        // NSDatePicker handles time format via its DatePickerElements configuration
+        var format = timePicker.Format;
+        if (string.IsNullOrEmpty(format))
+            return;
+
+        // Map common .NET time format strings to NSDatePicker element flags
+        var elements = NSDatePickerElementFlags.HourMinute;
+        if (format.Contains('s'))
+            elements = NSDatePickerElementFlags.HourMinuteSecond;
+
+        handler.PlatformView.DatePickerElements = elements;
     }
 }

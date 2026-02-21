@@ -69,9 +69,6 @@ public class DeviceInfoPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Device & App Info", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Label { Text = "Information from MAUI Essentials interfaces", FontSize = 14, TextColor = Colors.Gray },
-					new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
 					infoStack,
 				}
 			}
@@ -90,5 +87,5 @@ public class DeviceInfoPage : ContentPage
 		FontSize = 14, FontFamily = "monospace",
 	};
 
-	static BoxView Separator() => new() { HeightRequest = 1, Color = Colors.LightGray, Margin = new Thickness(0, 4) };
+	static Border Separator() => new() { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0, Margin = new Thickness(0, 4) };
 }

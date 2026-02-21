@@ -33,7 +33,23 @@ public class ProgressBarHandler : MacOSViewHandler<IProgress, NSProgressIndicato
 
     public static void MapProgressColor(ProgressBarHandler handler, IProgress progress)
     {
-        // NSProgressIndicator doesn't expose a direct tint color API.
-        // The system accent color is used by default.
+        if (progress.ProgressColor != null)
+        {
+            // NSProgressIndicator uses the system accent color by default.
+            // We can tint it by adding a colored sublayer over the track.
+            handler.PlatformView.WantsLayer = true;
+            if (handler.PlatformView.Layer != null)
+            {
+                // Use content filters to colorize
+                var filter = new CoreImage.CIColorMonochrome();
+                filter.Color = CoreImage.CIColor.FromCGColor(progress.ProgressColor.ToPlatformColor().CGColor);
+                filter.Intensity = 1.0f;
+                handler.PlatformView.ContentFilters = new CoreImage.CIFilter[] { filter };
+            }
+        }
+        else
+        {
+            handler.PlatformView.ContentFilters = Array.Empty<CoreImage.CIFilter>();
+        }
     }
 }

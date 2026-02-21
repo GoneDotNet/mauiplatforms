@@ -15,9 +15,38 @@ internal class FlippedNSView : NSView
     public FlippedNSView()
     {
         WantsLayer = true;
+        PostsFrameChangedNotifications = true;
     }
 
     public override bool IsFlipped => true;
+
+    /// The MAUI content page hosted in this container, set when MapContent runs.
+    internal WeakReference<IView>? ContentView { get; set; }
+
+    public override void SetFrameSize(CGSize newSize)
+    {
+        base.SetFrameSize(newSize);
+        RelayoutContent();
+    }
+
+    public override void Layout()
+    {
+        base.Layout();
+        RelayoutContent();
+    }
+
+    void RelayoutContent()
+    {
+        var size = Bounds.Size;
+        if (size.Width <= 0 || size.Height <= 0)
+            return;
+
+        if (ContentView != null && ContentView.TryGetTarget(out var content))
+        {
+            content.Measure((double)size.Width, (double)size.Height);
+            content.Arrange(new Graphics.Rect(0, 0, (double)size.Width, (double)size.Height));
+        }
+    }
 
     public override void ViewDidChangeEffectiveAppearance()
     {
@@ -51,10 +80,19 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         {
             [nameof(IWindow.Title)] = MapTitle,
             [nameof(IWindow.Content)] = MapContent,
+            [nameof(IWindow.Width)] = MapSize,
+            [nameof(IWindow.Height)] = MapSize,
+            [nameof(IWindow.X)] = MapPosition,
+            [nameof(IWindow.Y)] = MapPosition,
+            [nameof(IWindow.MinimumWidth)] = MapMinMaxSize,
+            [nameof(IWindow.MinimumHeight)] = MapMinMaxSize,
+            [nameof(IWindow.MaximumWidth)] = MapMinMaxSize,
+            [nameof(IWindow.MaximumHeight)] = MapMinMaxSize,
         };
 
     FlippedNSView? _contentContainer;
     MacOSToolbarManager? _toolbarManager;
+    MacOSModalManager? _modalManager;
 
     public WindowHandler() : base(Mapper)
     {
@@ -62,7 +100,7 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
 
     protected override NSWindow CreatePlatformElement()
     {
-        var style = NSWindowStyle.Titled | NSWindowStyle.Closable | NSWindowStyle.Resizable | NSWindowStyle.Miniaturizable;
+        var style = NSWindowStyle.Titled | NSWindowStyle.Closable | NSWindowStyle.Resizable | NSWindowStyle.Miniaturizable | NSWindowStyle.FullSizeContentView;
         var window = new NSWindow(
             new CGRect(0, 0, 1280, 720),
             style,
@@ -70,6 +108,9 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
             false);
 
         window.Center();
+        window.ToolbarStyle = NSWindowToolbarStyle.Unified;
+        window.TitleVisibility = NSWindowTitleVisibility.Hidden;
+        window.TitlebarAppearsTransparent = true;
 
         // Use a flipped NSView as ContentView so subviews use top-left origin
         _contentContainer = new FlippedNSView();
@@ -78,6 +119,9 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         // Attach the toolbar manager
         _toolbarManager = new MacOSToolbarManager();
         _toolbarManager.AttachToWindow(window);
+
+        // Create the modal manager
+        _modalManager = new MacOSModalManager(_contentContainer);
 
         window.MakeKeyAndOrderFront(null);
 
@@ -110,11 +154,55 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
             pageView.Frame = handler._contentContainer.Bounds;
             pageView.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable;
             handler._contentContainer.AddSubview(pageView);
+            handler._contentContainer.ContentView = new WeakReference<IView>(page);
+
+            // Measure and arrange the content so handlers like Shell can set up layout
+            var bounds = handler._contentContainer.Bounds;
+            if (bounds.Width > 0 && bounds.Height > 0)
+            {
+                page.Measure((double)bounds.Width, (double)bounds.Height);
+                page.Arrange(new Graphics.Rect(0, 0, (double)bounds.Width, (double)bounds.Height));
+            }
         }
+
+        // Subscribe to modal events on the Window
+        handler.SubscribeModalEvents(window);
 
         // Subscribe to page-level navigation events so toolbar refreshes on every page change
         handler.ObservePageChanges(page);
         handler.RefreshToolbar();
+    }
+
+    public static void MapSize(WindowHandler handler, IWindow window)
+    {
+        if (handler.PlatformView == null)
+            return;
+
+        var width = window.Width >= 0 ? window.Width : handler.PlatformView.Frame.Width;
+        var height = window.Height >= 0 ? window.Height : handler.PlatformView.Frame.Height;
+        var frame = handler.PlatformView.Frame;
+        // NSWindow origin is bottom-left; keep the top-left corner stable
+        var newY = frame.Y + frame.Height - (nfloat)height;
+        handler.PlatformView.SetFrame(new CGRect(frame.X, newY, (nfloat)width, (nfloat)height), true);
+    }
+
+    public static void MapPosition(WindowHandler handler, IWindow window)
+    {
+        if (handler.PlatformView == null)
+            return;
+
+        if (window.X >= 0 && window.Y >= 0)
+        {
+            var screen = handler.PlatformView.Screen ?? NSScreen.MainScreen;
+            if (screen != null)
+            {
+                // Convert MAUI top-left origin to AppKit bottom-left origin
+                var frame = handler.PlatformView.Frame;
+                var screenHeight = screen.Frame.Height;
+                var newY = screenHeight - (nfloat)window.Y - frame.Height;
+                handler.PlatformView.SetFrameOrigin(new CGPoint((nfloat)window.X, newY));
+            }
+        }
     }
 
     void ObservePageChanges(IView content)
@@ -133,6 +221,11 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
     {
         switch (view)
         {
+            case Shell shell:
+                shell.Navigated += OnShellNavigated;
+                _subscriptions.Add((shell, "Navigated"));
+                break;
+
             case TabbedPage tabbed:
                 tabbed.CurrentPageChanged += OnCurrentPageChanged;
                 _subscriptions.Add((tabbed, nameof(TabbedPage.CurrentPageChanged)));
@@ -161,6 +254,9 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         {
             switch (source)
             {
+                case Shell shell:
+                    shell.Navigated -= OnShellNavigated;
+                    break;
                 case TabbedPage tabbed:
                     tabbed.CurrentPageChanged -= OnCurrentPageChanged;
                     break;
@@ -192,6 +288,14 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         RefreshToolbar();
     }
 
+    void OnShellNavigated(object? sender, ShellNavigatedEventArgs e)
+    {
+        // Shell navigation (GoToAsync, push, pop, sidebar) — refresh toolbar
+        if (_observedContent != null)
+            ObservePageChanges(_observedContent);
+        RefreshToolbar();
+    }
+
     void OnFlyoutPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(FlyoutPage.Detail))
@@ -202,7 +306,7 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         }
     }
 
-    void RefreshToolbar()
+    internal void RefreshToolbar()
     {
         if (_toolbarManager == null || _observedContent == null)
             return;
@@ -218,11 +322,62 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
     {
         return view switch
         {
+            Shell shell => shell.CurrentPage,
             FlyoutPage flyout => FindCurrentPage((IView?)flyout.Detail),
             TabbedPage tabbed => FindCurrentPage((IView?)tabbed.CurrentPage),
             NavigationPage nav => FindCurrentPage((IView?)nav.CurrentPage),
             Page page => page,
             _ => null,
         };
+    }
+
+    public static void MapMinMaxSize(WindowHandler handler, IWindow window)
+    {
+        if (handler.PlatformView == null)
+            return;
+
+        var minW = window.MinimumWidth > 0 ? (nfloat)window.MinimumWidth : 0;
+        var minH = window.MinimumHeight > 0 ? (nfloat)window.MinimumHeight : 0;
+        handler.PlatformView.MinSize = new CGSize(minW, minH);
+
+        var maxW = window.MaximumWidth > 0 && window.MaximumWidth < double.MaxValue ? (nfloat)window.MaximumWidth : nfloat.MaxValue;
+        var maxH = window.MaximumHeight > 0 && window.MaximumHeight < double.MaxValue ? (nfloat)window.MaximumHeight : nfloat.MaxValue;
+        handler.PlatformView.MaxSize = new CGSize(maxW, maxH);
+    }
+
+    Window? _subscribedWindow;
+
+    void SubscribeModalEvents(IWindow window)
+    {
+        UnsubscribeModalEvents();
+
+        if (window is Window w)
+        {
+            _subscribedWindow = w;
+            w.ModalPushed += OnModalPushed;
+            w.ModalPopped += OnModalPopped;
+        }
+    }
+
+    void UnsubscribeModalEvents()
+    {
+        if (_subscribedWindow != null)
+        {
+            _subscribedWindow.ModalPushed -= OnModalPushed;
+            _subscribedWindow.ModalPopped -= OnModalPopped;
+            _subscribedWindow = null;
+        }
+    }
+
+    void OnModalPushed(object? sender, ModalPushedEventArgs e)
+    {
+        if (_modalManager != null && MauiContext != null)
+            _modalManager.PushModal(e.Modal, MauiContext, true);
+    }
+
+    void OnModalPopped(object? sender, ModalPoppedEventArgs e)
+    {
+        if (_modalManager != null)
+            _modalManager.PopModal(true);
     }
 }

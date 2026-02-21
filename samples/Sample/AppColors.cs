@@ -97,7 +97,7 @@ public static class AppColors
     public static Entry WithEntryTheme(this Entry entry)
     {
         entry.SetAppThemeColor(Entry.BackgroundColorProperty, EntryBgLight, EntryBgDark);
-        entry.SetAppThemeColor(Entry.TextColorProperty, TextPrimaryLight, Colors.Black);
+        entry.SetAppThemeColor(Entry.TextColorProperty, TextPrimaryLight, TextPrimaryDark);
         entry.PlaceholderColor = TextMuted;
         return entry;
     }

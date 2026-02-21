@@ -86,10 +86,6 @@ public class LaunchSharePage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Launch, Share & Files", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Label { Text = "Open URLs, share content, pick files", FontSize = 14, TextColor = Colors.Gray },
-					new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
-
 					statusLabel,
 
 					SectionHeader("🌐 Browser & Launcher"),
@@ -116,5 +112,5 @@ public class LaunchSharePage : ContentPage
 		Text = text, FontSize = 18, FontAttributes = FontAttributes.Bold,
 		Margin = new Thickness(0, 8, 0, 4),
 	};
-	static BoxView Separator() => new() { HeightRequest = 1, Color = Colors.LightGray, Margin = new Thickness(0, 4) };
+	static Border Separator() => new() { HeightRequest = 1, BackgroundColor = Colors.LightGray, StrokeThickness = 0, Margin = new Thickness(0, 4) };
 }

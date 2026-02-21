@@ -98,7 +98,15 @@ public class DatePickerHandler : MacOSViewHandler<IDatePicker, NSDatePicker>
 
     public static void MapFormat(DatePickerHandler handler, IDatePicker datePicker)
     {
-        // NSDatePicker uses NSDateFormatter format strings which differ from .NET,
-        // but for common cases the built-in elements are sufficient.
+        var format = datePicker.Format;
+        if (string.IsNullOrEmpty(format))
+            return;
+
+        // Map common .NET date format strings to NSDatePicker element flags
+        var elements = NSDatePickerElementFlags.YearMonthDateDay;
+        if (format.Contains('H') || format.Contains('h') || format.Contains('t'))
+            elements |= NSDatePickerElementFlags.HourMinuteSecond;
+
+        handler.PlatformView.DatePickerElements = elements;
     }
 }

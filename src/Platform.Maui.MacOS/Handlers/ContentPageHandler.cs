@@ -1,3 +1,4 @@
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Handlers;
 using AppKit;
 
@@ -10,6 +11,8 @@ public partial class ContentPageHandler : MacOSViewHandler<IContentView, MacOSCo
         {
             [nameof(IContentView.Content)] = MapContent,
             [nameof(IView.Background)] = MapBackground,
+            [nameof(ContentPage.MenuBarItems)] = MapMenuBarItems,
+            [nameof(ContentPage.Title)] = MapTitle,
         };
 
     public ContentPageHandler() : base(Mapper)
@@ -29,12 +32,14 @@ public partial class ContentPageHandler : MacOSViewHandler<IContentView, MacOSCo
         base.ConnectHandler(platformView);
         platformView.CrossPlatformMeasure = VirtualViewCrossPlatformMeasure;
         platformView.CrossPlatformArrange = VirtualViewCrossPlatformArrange;
+        platformView.View = VirtualView;
     }
 
     protected override void DisconnectHandler(MacOSContainerView platformView)
     {
         platformView.CrossPlatformMeasure = null;
         platformView.CrossPlatformArrange = null;
+        platformView.View = null;
         base.DisconnectHandler(platformView);
     }
 
@@ -71,6 +76,22 @@ public partial class ContentPageHandler : MacOSViewHandler<IContentView, MacOSCo
         if (page.Background is Graphics.SolidPaint solidPaint && solidPaint.Color != null)
             handler.PlatformView.Layer.BackgroundColor = solidPaint.Color.ToPlatformColor().CGColor;
         else
-            handler.PlatformView.Layer.BackgroundColor = NSColor.ControlBackground.CGColor;
+            handler.PlatformView.Layer.BackgroundColor = NSColor.Clear.CGColor;
+    }
+
+    public static void MapMenuBarItems(ContentPageHandler handler, IContentView page)
+    {
+        if (page is ContentPage contentPage)
+            MenuBarManager.UpdateMenuBar(contentPage.MenuBarItems);
+    }
+
+    public static void MapTitle(ContentPageHandler handler, IContentView page)
+    {
+        if (page is not ITitledElement titled)
+            return;
+
+        var window = handler.PlatformView.Window;
+        if (window != null && !string.IsNullOrEmpty(titled.Title))
+            window.Title = titled.Title;
     }
 }

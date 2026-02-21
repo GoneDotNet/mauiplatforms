@@ -115,7 +115,7 @@ public class MainPage : ContentPage
         {
             Text = "Show Confirm",
             BackgroundColor = AppColors.AccentOrange,
-            TextColor = Colors.Black,
+            TextColor = Colors.White,
         };
         confirmButton.Clicked += OnConfirmClicked;
 
@@ -221,12 +221,13 @@ public class MainPage : ContentPage
             HorizontalOptions = LayoutOptions.Center,
         };
 
-        // --- BoxView ---
-        var boxView = new BoxView
+        // --- Border (accent bar) ---
+        var boxView = new Border
         {
-            Color = AppColors.AccentPink,
+            BackgroundColor = AppColors.AccentPink,
             HeightRequest = 6,
-            CornerRadius = 3,
+            StrokeThickness = 0,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 3 },
         };
 
         // --- Layout items in horizontal rows ---
@@ -373,7 +374,7 @@ public class MainPage : ContentPage
                     SectionHeader("Status"),
                     _statusLabel,
 
-                    new BoxView { HeightRequest = 40 },
+                    new Border { HeightRequest = 40, StrokeThickness = 0 },
                 },
             },
         };
@@ -563,7 +564,7 @@ public class MainPage : ContentPage
                 new Label { Text = "Date Picker", TextColor = AppColors.AccentBlue, FontSize = 18 },
                 datePicker,
                 dateLabel,
-                new BoxView { HeightRequest = 4 },
+                new Border { HeightRequest = 4, StrokeThickness = 0 },
                 new Label { Text = "Time Picker", TextColor = AppColors.AccentBlue, FontSize = 18 },
                 timePicker,
                 timeLabel,

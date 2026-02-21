@@ -7,7 +7,8 @@ using AppKit;
 namespace Microsoft.Maui.Platform.MacOS.Handlers;
 
 /// <summary>
-/// Container view for NavigationPage that resizes the current page on layout.
+/// Container view for NavigationPage content. Navigation chrome (back button, title,
+/// toolbar items) is rendered in the native macOS NSToolbar via MacOSToolbarManager.
 /// </summary>
 public class NavigationContainerView : MacOSContainerView
 {
@@ -23,7 +24,11 @@ public class NavigationContainerView : MacOSContainerView
 public partial class NavigationPageHandler : MacOSViewHandler<IStackNavigationView, NavigationContainerView>, IStackNavigation
 {
     public static readonly IPropertyMapper<IStackNavigationView, NavigationPageHandler> Mapper =
-        new PropertyMapper<IStackNavigationView, NavigationPageHandler>(ViewMapper);
+        new PropertyMapper<IStackNavigationView, NavigationPageHandler>(ViewMapper)
+        {
+            [nameof(NavigationPage.BarBackgroundColor)] = MapBarBackgroundColor,
+            [nameof(NavigationPage.BarTextColor)] = MapBarTextColor,
+        };
 
     public static readonly CommandMapper<IStackNavigationView, NavigationPageHandler> CommandMapper =
         new(ViewCommandMapper)
@@ -46,9 +51,9 @@ public partial class NavigationPageHandler : MacOSViewHandler<IStackNavigationVi
 
     protected override NavigationContainerView CreatePlatformView()
     {
-        var view = new NavigationContainerView();
-        view.OnLayout = OnContainerLayout;
-        return view;
+        var container = new NavigationContainerView();
+        container.OnLayout = OnContainerLayout;
+        return container;
     }
 
     protected override void ConnectHandler(NavigationContainerView platformView)
@@ -63,7 +68,7 @@ public partial class NavigationPageHandler : MacOSViewHandler<IStackNavigationVi
 
         if (_currentPageView != null)
         {
-            _currentPageView.Frame = bounds;
+            _currentPageView.Frame = new CGRect(0, 0, bounds.Width, bounds.Height);
 
             var currentPage = _navigationStack.LastOrDefault();
             if (currentPage != null)
@@ -97,14 +102,25 @@ public partial class NavigationPageHandler : MacOSViewHandler<IStackNavigationVi
         }
 
         var platformView = page.ToMacOSPlatform(MauiContext);
-        platformView.Frame = PlatformView.Bounds;
-        platformView.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable;
         PlatformView.AddSubview(platformView);
         _currentPageView = platformView;
+
+        // Trigger layout
+        if (PlatformView.Bounds.Width > 0)
+            OnContainerLayout(PlatformView.Bounds);
     }
 
     public void NavigationFinished(IReadOnlyList<IView> newStack)
     {
-        // Called by the view when navigation is complete — no-op on handler side
+    }
+
+    public static void MapBarBackgroundColor(NavigationPageHandler handler, IStackNavigationView view)
+    {
+        // Bar colors are handled by the native NSToolbar appearance
+    }
+
+    public static void MapBarTextColor(NavigationPageHandler handler, IStackNavigationView view)
+    {
+        // Bar colors are handled by the native NSToolbar appearance
     }
 }

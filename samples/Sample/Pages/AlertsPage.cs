@@ -78,14 +78,11 @@ public class AlertsPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Alerts & Dialogs", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
-
 					new Border
 					{
 						Stroke = Colors.DodgerBlue,
 						StrokeThickness = 1,
-						StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(8) },
+						StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(8) },
 						Padding = new Thickness(16),
 						BackgroundColor = Colors.DodgerBlue.WithAlpha(0.05f),
 						Content = resultLabel,
@@ -116,8 +113,8 @@ public class AlertsPage : ContentPage
 		Text = text,
 		FontSize = 16,
 		FontAttributes = FontAttributes.Bold,
-		TextColor = Colors.DarkSlateGray,
+		TextColor = Colors.CornflowerBlue,
 	};
 
-	static BoxView Separator() => new() { HeightRequest = 1, Color = Colors.LightGray };
+	static Border Separator() => new() { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0 };
 }

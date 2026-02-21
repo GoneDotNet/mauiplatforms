@@ -9,66 +9,307 @@ Custom .NET MAUI backends targeting platforms not officially supported by MAUI �
 
 Both backends use the platform-agnostic MAUI NuGet packages (`net10.0` fallback assemblies) and provide custom handler implementations that bridge MAUI's layout/rendering system to the native platform UI frameworks.
 
+> **Inspiration:** The Xamarin.Forms project previously had a macOS AppKit backend ([Xamarin.Forms.Platform.MacOS](https://github.com/xamarin/Xamarin.Forms/tree/5.0.0/Xamarin.Forms.ControlGallery.MacOS)). While this project uses MAUI's handler architecture rather than the legacy renderer approach, some of that codebase is useful as a reference for mapping AppKit native controls.
+
 ## Samples
 
-Videos are attached in the repo
+Videos are attached in the repo.
+
+## Quick Start — Setting Up a macOS MAUI App
+
+### 1. Create the project
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+    <ApplicationTitle>My macOS App</ApplicationTitle>
+    <ApplicationId>com.example.myapp</ApplicationId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Platform.Maui.MacOS" Version="*" />
+    <PackageReference Include="Platform.Maui.Essentials.MacOS" Version="*" />
+  </ItemGroup>
+
+  <!-- App icon (SVG or PNG source — .icns is generated automatically) -->
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.png" />
+  </ItemGroup>
+</Project>
+```
+
+### 2. Entry point (`Main.cs`)
+
+```csharp
+using AppKit;
+
+public class MainClass
+{
+    static void Main(string[] args)
+    {
+        NSApplication.Init();
+        NSApplication.SharedApplication.Delegate = new MauiMacOSApp();
+        NSApplication.Main(args);
+    }
+}
+```
+
+### 3. App delegate (`MauiMacOSApp.cs`)
+
+```csharp
+using Foundation;
+using Microsoft.Maui.Platform.MacOS;
+
+[Register("MauiMacOSApp")]
+public class MauiMacOSApp : MacOSMauiApplication
+{
+    protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+}
+```
+
+### 4. MAUI program (`MauiProgram.cs`)
+
+```csharp
+using Microsoft.Maui.Platform.MacOS.Hosting;
+
+public static class MauiProgram
+{
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder();
+        builder
+            .UseMauiAppMacOS<App>()
+            .AddMacOSEssentials()
+            .ConfigureFonts(fonts =>
+            {
+                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+            });
+
+        return builder.Build();
+    }
+}
+```
+
+### 5. App class (`App.cs`)
+
+```csharp
+public class App : Application
+{
+    protected override Window CreateWindow(IActivationState? activationState)
+        => new Window(new MainPage());
+}
+```
+
+## App Icons
+
+The `Platform.Maui.MacOS` NuGet package includes MSBuild targets that automatically process `MauiIcon` items — the same item type used by MAUI's Resizetizer for iOS, Android, and Windows.
+
+```xml
+<ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.png" />
+</ItemGroup>
+```
+
+At build time, the targets:
+1. Use `sips` to resize the source image (SVG or PNG) to all 10 required macOS icon sizes (16×16 through 512×512@2x)
+2. Use `iconutil` to create the `.icns` file
+3. Inject `CFBundleIconFile` into the app manifest via `PartialAppManifest`
+4. Add the `.icns` as a `BundleResource`
+
+No manual `.icns` creation or `Info.plist` editing required.
+
+## macOS Platform-Specific APIs
+
+### Shell — Native Sidebar
+
+The macOS backend supports Shell with a native macOS sidebar using `NSOutlineView` source list, providing a Finder/System Settings-like navigation experience. Configure it with attached properties on your `Shell`:
+
+```csharp
+using Microsoft.Maui.Platform.MacOS;
+
+public class AppShell : Shell
+{
+    public AppShell()
+    {
+        FlyoutBehavior = FlyoutBehavior.Locked;
+
+        // Enable native NSOutlineView sidebar
+        MacOSShell.SetUseNativeSidebar(this, true);
+
+        // Allow user to resize sidebar by dragging the divider (default: true)
+        MacOSShell.SetIsSidebarResizable(this, true);
+
+        var generalSection = new FlyoutItem { Title = "General" };
+
+        var home = new ShellContent { Title = "Home", ContentTemplate = new DataTemplate(typeof(HomePage)) };
+        MacOSShell.SetSystemImage(home, "house.fill");  // SF Symbol icon
+        generalSection.Items.Add(home);
+
+        var settings = new ShellContent { Title = "Settings", ContentTemplate = new DataTemplate(typeof(SettingsPage)) };
+        MacOSShell.SetSystemImage(settings, "gear");
+        generalSection.Items.Add(settings);
+
+        Items.Add(generalSection);
+    }
+}
+```
+
+#### `MacOSShell` Attached Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `UseNativeSidebar` | `bool` | `false` | Use native `NSOutlineView` source list sidebar instead of custom-drawn sidebar |
+| `SystemImage` | `string?` | `null` | SF Symbol name for sidebar icon (e.g. `"house.fill"`, `"gear"`, `"star"`). Set on `ShellContent`, `ShellSection`, or `FlyoutItem` |
+| `IsSidebarResizable` | `bool` | `true` | Allow sidebar resizing by dragging the divider |
+
+### FlyoutPage — Native Sidebar
+
+For `FlyoutPage`, you can also use a native sidebar with structured items:
+
+```csharp
+using Microsoft.Maui.Platform.MacOS;
+
+var flyoutPage = new FlyoutPage();
+
+MacOSFlyoutPage.SetSidebarItems(flyoutPage, new List<MacOSSidebarItem>
+{
+    new MacOSSidebarItem
+    {
+        Title = "Library",
+        Children = new List<MacOSSidebarItem>
+        {
+            new MacOSSidebarItem { Title = "Music", SystemImage = "music.note" },
+            new MacOSSidebarItem { Title = "Photos", SystemImage = "photo" },
+        }
+    }
+});
+
+MacOSFlyoutPage.SetSidebarSelectionChanged(flyoutPage, item =>
+{
+    // Handle selection
+});
+```
+
+To use the native sidebar handler, register it in `MauiProgram.cs`:
+```csharp
+builder.ConfigureMauiHandlers(handlers =>
+{
+    handlers.AddHandler<FlyoutPage, NativeSidebarFlyoutPageHandler>();
+});
+```
+
+#### `MacOSFlyoutPage` Attached Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `SidebarItems` | `IList<MacOSSidebarItem>?` | `null` | Structured sidebar items for native `NSOutlineView` |
+| `SidebarSelectionChanged` | `Action<MacOSSidebarItem>?` | `null` | Callback when a sidebar item is selected |
+
+#### `MacOSSidebarItem` Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Title` | `string` | Display title |
+| `SystemImage` | `string?` | SF Symbol name (takes priority over `Icon`) |
+| `Icon` | `ImageSource?` | MAUI ImageSource fallback |
+| `Children` | `IList<MacOSSidebarItem>?` | Child items — makes this item a section header (group row) |
+| `Tag` | `object?` | Developer-defined tag for identifying selected items |
+| `IsGroup` | `bool` | Read-only: `true` when item has children |
 
 ## Project Structure
 
 ```
 src/
-  Microsoft.Maui.Platform.TvOS/     # tvOS backend library (net10.0-tvos)
-  Microsoft.Maui.Platform.MacOS/    # macOS AppKit backend library (net10.0-macos)
-  Microsoft.Maui.Essentials.TvOS/   # tvOS Essentials library
-  Microsoft.Maui.Essentials.MacOS/  # macOS Essentials library
+  Platform.Maui.MacOS/              # macOS AppKit backend library (net10.0-macos)
+  Platform.Maui.MacOS.BlazorWebView/ # Blazor Hybrid support for macOS
+  Platform.Maui.TvOS/               # tvOS backend library (net10.0-tvos)
+  Platform.Maui.Essentials.MacOS/   # macOS Essentials library
+  Platform.Maui.Essentials.TvOS/    # tvOS Essentials library
 samples/
-  Sample/                           # Shared sample code (App.cs, MainPage.cs, Platforms/)
-  SampleTv/                         # tvOS sample app (links files from Sample/)
-  SampleMac/                        # macOS sample app (links files from Sample/)
+  Sample/                           # Shared sample code (Pages, Platforms/)
+  SampleTv/                         # tvOS sample app
+  SampleMac/                        # macOS sample app
 ```
 
 > **Note:** There is also a `Sample/Sample.csproj` that multitargets both `net10.0-tvos` and `net10.0-macos`, but it is **not yet working**. Use `SampleTv` and `SampleMac` to build and run the individual platform samples.
 
 ## Handlers Implemented
 
-Both platforms share the same set of control handlers:
+### Controls
 
 | Control | tvOS (UIKit) | macOS (AppKit) |
 |---------|-------------|----------------|
 | Label | UILabel | NSTextField (non-editable) |
 | Button | UIButton | NSButton |
+| ImageButton | — | NSButton (image content) |
 | Entry | UITextField | NSTextField (editable) |
-| Editor | ❌ Not implemented | NSTextView (multiline, in NSScrollView) |
+| Editor | — | NSTextView (in NSScrollView) |
 | Picker | UIButton + UIAlertController | NSPopUpButton |
 | Slider | Custom TvOSSliderView | NSSlider |
-| Stepper | ❌ Not implemented | NSStepper |
-| Switch | UIButton (toggle, no native UISwitch on tvOS) | NSSwitch |
-| CheckBox | ❌ Not available on tvOS | NSButton (checkbox style) |
-| RadioButton | ❌ Not available on tvOS | NSButton (radio style) |
+| Stepper | — | NSStepper |
+| Switch | UIButton (toggle) | NSSwitch |
+| CheckBox | — | NSButton (checkbox style) |
+| RadioButton | — | NSButton (radio style) |
 | SearchBar | Custom TvOSSearchBarView | NSSearchField |
 | ActivityIndicator | UIActivityIndicatorView | NSProgressIndicator |
-| ProgressBar | UIProgressView | NSProgressIndicator (bar mode) |
+| ProgressBar | UIProgressView | NSProgressIndicator (bar) |
 | Image | UIImageView | NSImageView |
-| ScrollView | UIScrollView | NSScrollView |
-| ShapeView | UIView + CAShapeLayer | NSView + CAShapeLayer |
-| Border | UIView + CAShapeLayer (stroke + mask) | NSView + CAShapeLayer (stroke + mask) |
-| DatePicker | ❌ No UIDatePicker on tvOS | NSDatePicker (date mode) |
-| TimePicker | ❌ No UIDatePicker on tvOS | NSDatePicker (time mode) |
-| Shadow | CALayer shadow properties | CALayer shadow properties |
-| Layout (Stack, Grid, etc.) | TvOSContainerView | MacOSContainerView |
-| CollectionView | UIScrollView (item materialization) | NSScrollView (item materialization) |
-| CarouselView | UIScrollView (horizontal paging, snap-to-item) | ❌ Not implemented |
-| ContentPage | TvOSContainerView | MacOSContainerView |
-| ContentView | TvOSContainerView | MacOSContainerView |
-| FlyoutPage | ❌ Not available on tvOS | FlyoutContainerView (NSSplitView sidebar) |
-| Toolbar | ❌ Not available on tvOS | NSToolbar (via Page.ToolbarItems) |
-| BoxView | via ShapeView | via ShapeView |
-| GraphicsView | ❌ Not implemented | MacOSGraphicsView (DirectRenderer + CoreGraphics) |
-| NavigationPage | NavigationContainerView (stack navigation) | NavigationContainerView (stack navigation) |
-| TabbedPage | TabbedContainerView (custom tab bar) | TabbedContainerView (NSSegmentedControl) |
-| WebView | ❌ Not available on tvOS | WKWebView |
+| DatePicker | — | NSDatePicker (date mode) |
+| TimePicker | — | NSDatePicker (time mode) |
+| WebView | — | WKWebView |
 | MapView | MKMapView (display-only) | MKMapView (interactive) |
-| BlazorWebView | ❌ Not available on tvOS | MacOSBlazorWebView + WKWebView |
+
+### Pages & Navigation
+
+| Page | tvOS | macOS |
+|------|------|-------|
+| ContentPage | ✅ | ✅ |
+| NavigationPage | ✅ Stack navigation | ✅ Stack + toolbar back button |
+| TabbedPage | ✅ Custom tab bar | ✅ NSSegmentedControl |
+| FlyoutPage | — | ✅ Native sidebar or custom |
+| Shell | — | ✅ Full navigation, native sidebar, push/pop |
+| Modal pages | — | ✅ NSAlert-backed |
+
+### Collections
+
+| Control | tvOS | macOS |
+|---------|------|-------|
+| CollectionView | ✅ Virtualized | ✅ Virtualized, grouping, selection, EmptyView, Header/Footer |
+| CarouselView | ✅ Horizontal paging | ✅ Scroll snapping, indicators |
+| ListView | — | ✅ (deprecated — use CollectionView) |
+| TableView | — | ✅ |
+| IndicatorView | — | ✅ |
+| RefreshView | — | ✅ |
+| SwipeView | — | ✅ |
+
+### Layouts
+
+All layouts work on both platforms: `VerticalStackLayout`, `HorizontalStackLayout`, `Grid`, `FlexLayout`, `AbsoluteLayout`, `ScrollView`, `ContentView`, `Border`, `Frame`.
+
+### Graphics & Shapes
+
+| Feature | tvOS | macOS |
+|---------|------|-------|
+| GraphicsView | — | ✅ CoreGraphics DirectRenderer |
+| Shapes (Rectangle, Ellipse, Line, Polyline, Polygon, Path) | ✅ | ✅ |
+| Shadow | ✅ | ✅ |
+| Gradient Brushes (Linear, Radial) | — | ✅ via CAGradientLayer |
+
+### Gestures
+
+| Gesture | tvOS | macOS |
+|---------|------|-------|
+| Tap | ✅ | ✅ |
+| Pan | — | ✅ |
+| Swipe | — | ✅ |
+| Pinch | — | ✅ |
+| Pointer (Hover) | — | ✅ |
 
 ### Infrastructure
 
@@ -78,214 +319,28 @@ Both platforms share the same set of control handlers:
 | Window | UIWindow + UIViewController | NSWindow + FlippedNSView |
 | Dispatcher | GCD (DispatchQueue.MainQueue) | GCD (DispatchQueue.MainQueue) |
 | DispatcherTimer | NSTimer | NSTimer |
-| Dialogs (Alert, Confirm, Prompt) | ❌ Not supported (see below) | NSAlert |
-
-## Handler TODO
-
-### Controls
-* ImageButton
-* Stepper — tvOS ❌ (macOS ✅)
-* RadioButton — tvOS ❌ (macOS ✅)
-* Dialogs (Confirm, Prompt, Alert) - macOS ✅, tvOS ❌ (see [Dialogs](#dialogs) below)
-
-### Pages
-* IndicatorView
-
-### Collections
-* RefreshView
-* SwipeView
-
-## Platform TODO
-
-### General
-* Multitarget `Sample` project (`net10.0-tvos;net10.0-macos` in a single csproj)
-* XAML Compilation (currently C#-only pages work reliably)
-* Multi-window support
-* Modal page presentation
-* Keyboard/focus management
-* Accessibility support
-* Light/dark mode support (theme detection and dynamic colors) ✅
-* Font management (custom fonts, font families)
-* Gesture recognizers (Tap, Swipe, Pan, Pinch)
-
-### tvOS Specific
-* Focus Engine integration (visual focus states on controls)
-* Top Shelf extensions
-* TV remote menu button handling
-* TVUIKit integration (TVPosterView, TVMonogramView)
-
-### macOS Specific
-* Menu bar integration (NSMenu)
-* Touch Bar support
-* NSSecureTextField for Entry.IsPassword (currently no-op)
-* File dialogs (Open/Save panels)
-* Drag and drop
-* Multiple windows
-* ~~Window lifecycle (minimize, fullscreen, close)~~ ✅ (active, resign active, hide, unhide, terminate)
-
-### Broader Goals
-* ~~WebView~~ — macOS ✅ (WKWebView), tvOS ❌ (not supported by platform)
-* ~~BlazorWebView~~ — macOS ✅ (custom MacOSBlazorWebView control), tvOS ❌ (no WebView support)
-* App Icons (ideally via MAUI build tools / `MauiIcon`)
-* ~~Essentials (platform-specific API wrappers)~~ — AppInfo ✅, DeviceInfo ✅, Connectivity ✅, Battery ✅ (macOS only), DeviceDisplay ✅, FileSystem ✅, Preferences ✅, SecureStorage ✅, FilePicker ✅ (macOS only), MediaPicker ✅ (macOS only), TextToSpeech ✅, Clipboard ✅, Browser ✅ (macOS only), Share ✅ (macOS only), Launcher ✅ (macOS only) (see [Essentials](#essentials) below)
-* NuGet packaging
-* CI/CD pipeline
-
-## Prerequisites
-
-> **Important:** JetBrains Rider and Visual Studio will not compile these projects. The `net10.0-tvos` and `net10.0-macos` TFMs are not recognized by IDE build systems. All building and running **must be done through the CLI** using the `dotnet` command.
-
-### .NET 10 SDK
-
-Install the latest .NET 10 preview SDK from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0).
-
-### Workloads (macOS only)
-
-The tvOS and macOS workloads must be installed. These are only available on macOS (requires Xcode).
-
-```bash
-# Install both workloads
-dotnet workload install tvos
-dotnet workload install macos
-
-# Verify they are installed
-dotnet workload list
-```
-
-You should see output similar to:
-
-```
-Installed Workload Id    Manifest Version    Installation Source
------------------------------------------------------------------
-macos                    26.2.10197/10.0.100 SDK 10.0.100
-tvos                     26.2.10197/10.0.100 SDK 10.0.100
-```
-
-### Xcode
-
-Xcode must be installed (for Apple platform SDKs and the tvOS simulator). Ensure the command-line tools are selected:
-
-```bash
-sudo xcode-select -s /Applications/Xcode.app
-```
-
-## Building
-
-All builds must be done via the CLI:
-
-```bash
-# Build the backend libraries
-dotnet build src/Microsoft.Maui.Platform.TvOS/Microsoft.Maui.Platform.TvOS.csproj
-dotnet build src/Microsoft.Maui.Platform.MacOS/Microsoft.Maui.Platform.MacOS.csproj
-
-# Build the sample apps (use SampleTv / SampleMac, not Sample)
-dotnet build samples/SampleTv/SampleTv.csproj
-dotnet build samples/SampleMac/SampleMac.csproj
-```
-
-> **Note:** Do not use `dotnet build "MAUI Platforms.slnx"` — the solution-level build may fail due to multitarget issues. Build projects individually instead. The `Sample` multitarget project is also not yet working — use `SampleTv` and `SampleMac` instead.
-
-## Running
-
-### tvOS (Simulator)
-
-```bash
-dotnet build samples/SampleTv/SampleTv.csproj -t:Run
-```
-
-This builds, deploys to the tvOS simulator, and launches the app in one step.
-
-### macOS
-
-```bash
-dotnet build samples/SampleMac/SampleMac.csproj
-open samples/SampleMac/bin/Debug/net10.0-macos/osx-arm64/MAUI\ macOS.app
-```
-
-## Key Technical Notes
-
-* MAUI NuGet packages resolve to the `net10.0` (platform-agnostic) assembly for unsupported TFMs. This means `ToPlatform()` returns `object` — custom `ViewExtensions` casts to the native view type (UIView/NSView).
-* The platform-agnostic `ViewHandler` has no-op `PlatformArrange` and returns `Size.Zero` from `GetDesiredSize`. Custom base handlers (`TvOSViewHandler`/`MacOSViewHandler`) override these to bridge MAUI layout to native view frames.
-* macOS NSView uses bottom-left origin by default. All container views override `IsFlipped => true` for MAUI's top-left coordinate system.
-* macOS NSView has no `SizeThatFits()` — the base handler uses `IntrinsicContentSize` and `FittingSize` for native controls, and a custom `SizeThatFits` method on `MacOSContainerView`.
-* `IButton` does not have `Text` or `TextColor` directly — those are on `IText` and `ITextStyle`. Handlers cast via `if (button is IText textButton)`.
-* Sample apps use pure C# pages (no XAML) to avoid XAML compilation issues on unsupported platforms.
-* `NavigationPage` dispatches navigation requests via `Handler.Invoke()` (the MAUI command mapper pattern), not direct method calls. The handler must register a `CommandMapper` entry for `RequestNavigation` and call `NavigationFinished()` on the view after completing navigation. The initial page is pushed automatically by MAUI's `OnHandlerChangedCore`.
-
-## Lifecycle Events
-
-Both platforms fire `IWindow` lifecycle methods and support MAUI's `ConfigureLifecycleEvents` builder pattern for platform-specific event hooks.
-
-### IWindow Lifecycle
-
-The base app delegates (`MacOSMauiApplication`, `TvOSMauiApplication`) automatically call the standard `IWindow` lifecycle methods:
-
-| IWindow Method | macOS Trigger | tvOS Trigger |
-|---|---|---|
-| `Created()` | App launch | App launch |
-| `Activated()` | App becomes active | App becomes active |
-| `Deactivated()` | App loses active status | App resigns activation |
-| `Stopped()` | App hidden (Cmd+H) | App enters background |
-| `Resumed()` | App unhidden | App enters foreground |
-| `Destroying()` | App terminating | App terminating |
-
-Subscribe to these via MAUI's standard `Window` events:
-```csharp
-protected override Window CreateWindow(IActivationState? activationState)
-{
-    var window = new Window(new MainPage());
-    window.Activated += (s, e) => Console.WriteLine("Window Activated");
-    window.Stopped += (s, e) => Console.WriteLine("Window Stopped");
-    return window;
-}
-```
-
-### ConfigureLifecycleEvents (Platform-Specific)
-
-For platform-specific lifecycle hooks with access to native arguments, use the `ConfigureLifecycleEvents` builder pattern:
-
-**macOS:**
-```csharp
-builder.ConfigureLifecycleEvents(events =>
-{
-    events.AddMacOS(macOS => macOS
-        .DidFinishLaunching(notification => { /* NSNotification */ })
-        .DidBecomeActive(notification => { })
-        .DidResignActive(notification => { })
-        .DidHide(notification => { })
-        .DidUnhide(notification => { })
-        .WillTerminate(notification => { })
-    );
-});
-```
-
-**tvOS:**
-```csharp
-builder.ConfigureLifecycleEvents(events =>
-{
-    events.AddTvOS(tvOS => tvOS
-        .FinishedLaunching(app => { /* UIApplication */ })
-        .OnActivated(app => { })
-        .OnResignActivation(app => { })
-        .DidEnterBackground(app => { })
-        .WillEnterForeground(app => { })
-        .WillTerminate(app => { })
-    );
-});
-```
+| Dialogs (Alert, Confirm, Prompt) | — | ✅ NSAlert |
+| Font Management | ✅ | ✅ CTFontManager |
+| Dark/Light Mode | ✅ | ✅ Automatic theme detection |
+| Animations | ✅ | ✅ MacOSTicker + MAUI animation system |
+| FormattedText / Spans | — | ✅ NSAttributedString |
+| InputTransparent | — | ✅ HitTest override |
+| Toolbar | — | ✅ NSToolbar |
+| Window Resize Relayout | — | ✅ |
 
 ## BlazorWebView (macOS only)
 
-The BlazorWebView implementation uses a custom `MacOSBlazorWebView` control instead of the MAUI package's `BlazorWebView` — the built-in control internally casts its handler to the iOS/Catalyst `BlazorWebViewHandler`, which fails on AppKit.
+The BlazorWebView implementation uses a custom `MacOSBlazorWebView` control — the built-in MAUI `BlazorWebView` internally casts to the iOS/Catalyst handler, which fails on AppKit.
 
-**Architecture:**
-- `MacOSBlazorWebView` — a simple `View` subclass with `HostPage`, `StartPath`, and `RootComponents` properties
-- `BlazorWebViewHandler` — creates a WKWebView with a custom `app://` URL scheme handler and injects the Blazor interop script
-- `MacOSWebViewManager` — bridges `WebViewManager` (from `Microsoft.AspNetCore.Components.WebView`) to the native WKWebView
-- `MacOSMauiAssetFileProvider` — serves static content from the macOS app bundle's `Resources/` directory
-- `MacOSBlazorDispatcher` — bridges MAUI's `IDispatcher` to Blazor's abstract `Dispatcher`
+### Setup
 
-**Usage:**
+```csharp
+// In MauiProgram.cs
+builder.AddMacOSBlazorWebView();
+```
+
+### Usage
+
 ```csharp
 using Microsoft.Maui.Platform.MacOS.Controls;
 
@@ -301,42 +356,53 @@ blazorView.RootComponents.Add(new BlazorRootComponent
 });
 ```
 
-Static web assets (`wwwroot/`) must be included as `BundleResource` items in the project file, and `blazor.modules.json` (an empty `[]` array) plus `blazor.webview.js` must be present under `wwwroot/_framework/`.
+Static web assets (`wwwroot/`) must be included as `BundleResource` items in the project file:
+```xml
+<ItemGroup>
+    <BundleResource Include="wwwroot\**" />
+</ItemGroup>
+```
+
+## Lifecycle Events
+
+Both platforms fire standard `IWindow` lifecycle methods and support MAUI's `ConfigureLifecycleEvents` builder pattern.
+
+### IWindow Lifecycle
+
+| IWindow Method | macOS Trigger | tvOS Trigger |
+|---|---|---|
+| `Created()` | App launch | App launch |
+| `Activated()` | App becomes active | App becomes active |
+| `Deactivated()` | App loses active status | App resigns activation |
+| `Stopped()` | App hidden (Cmd+H) | App enters background |
+| `Resumed()` | App unhidden | App enters foreground |
+| `Destroying()` | App terminating | App terminating |
+
+### Platform-Specific Lifecycle Events
+
+```csharp
+builder.ConfigureLifecycleEvents(events =>
+{
+    events.AddMacOS(macOS => macOS
+        .DidFinishLaunching(notification => { /* NSNotification */ })
+        .DidBecomeActive(notification => { })
+        .DidResignActive(notification => { })
+        .DidHide(notification => { })
+        .DidUnhide(notification => { })
+        .WillTerminate(notification => { })
+    );
+});
+```
 
 ## Essentials
 
-Platform-specific implementations of MAUI Essentials APIs for both tvOS and macOS.
+Platform-specific implementations of MAUI Essentials APIs.
 
-### Supported APIs
-
-| API | tvOS | macOS | Notes |
-|-----|------|-------|-------|
-| AppInfo | ✅ | ✅ | Package name, version, build, theme, layout direction |
-| DeviceInfo | ✅ | ✅ | Model, manufacturer, device name, OS version, platform, idiom, device type |
-| Connectivity | ✅ | ✅ | Network access status, connection profiles (WiFi), change events |
-| Battery | ❌ | ✅ | Charge level, state, power source, change events (IOKit). Not available on tvOS. |
-| DeviceDisplay | ✅ | ✅ | Screen dimensions, density, orientation, rotation, refresh rate, keep screen on |
-| FileSystem | ✅ | ✅ | Cache directory, app data directory, app package file access |
-| Preferences | ✅ | ✅ | Key/value storage via NSUserDefaults |
-| SecureStorage | ✅ | ✅ | Encrypted key/value storage via Keychain |
-| FilePicker | ❌ | ✅ | Single/multiple file picking via NSOpenPanel. Not available on tvOS. |
-| MediaPicker | ❌ | ✅ | Photo/video picking via NSOpenPanel (no capture). Not available on tvOS. |
-| TextToSpeech | ✅ | ✅ | macOS: NSSpeechSynthesizer, tvOS: AVSpeechSynthesizer. GetLocalesAsync unavailable on tvOS (AOT). |
-| Clipboard | ✅ | ✅ | Copy/paste text. macOS: NSPasteboard, tvOS: in-process (no system pasteboard on tvOS). |
-| Browser | ❌ | ✅ | Open URLs in default browser via NSWorkspace. Not available on tvOS. |
-| Share | ❌ | ✅ | Share sheet via NSSharingServicePicker. Not available on tvOS. |
-| Launcher | ❌ | ✅ | Open files/URIs with default app via NSWorkspace. Not available on tvOS. |
-
-### Usage
-
-Call the registration method early in your app startup (before `MauiApp.CreateBuilder()`):
+### Setup
 
 ```csharp
-// macOS
-Microsoft.Maui.Essentials.MacOS.EssentialsExtensions.UseMacOSEssentials();
-
-// tvOS
-Microsoft.Maui.Essentials.TvOS.EssentialsExtensions.UseTvOSEssentials();
+// In MauiProgram.cs
+builder.AddMacOSEssentials();
 ```
 
 Then use the standard MAUI Essentials APIs:
@@ -345,19 +411,101 @@ var appName = AppInfo.Name;
 var version = AppInfo.VersionString;
 var theme = AppInfo.RequestedTheme;
 var model = DeviceInfo.Model;
-var platform = DeviceInfo.Platform;
 ```
 
-> **Note:** MAUI's `AppInfo.SetCurrent()` and `DeviceInfo.SetCurrent()` are `internal`, so the Essentials libraries use reflection to set the backing field. This works with the `net10.0` fallback assemblies.
+### Supported APIs
 
-### Essentials TODO
-* VersionTracking
-* MainThread
+| API | tvOS | macOS | Notes |
+|-----|------|-------|-------|
+| AppInfo | ✅ | ✅ | Package name, version, build, theme, layout direction |
+| DeviceInfo | ✅ | ✅ | Model, manufacturer, device name, OS version, platform, idiom |
+| Connectivity | ✅ | ✅ | Network access status, connection profiles, change events |
+| Battery | — | ✅ | Charge level, state, power source (IOKit) |
+| DeviceDisplay | ✅ | ✅ | Screen dimensions, density, orientation, refresh rate |
+| FileSystem | ✅ | ✅ | Cache directory, app data directory, app package files |
+| Preferences | ✅ | ✅ | Key/value storage via NSUserDefaults |
+| SecureStorage | ✅ | ✅ | Encrypted storage via Keychain |
+| FilePicker | — | ✅ | NSOpenPanel file selection |
+| MediaPicker | — | ✅ | Photo/video picking via NSOpenPanel |
+| TextToSpeech | ✅ | ✅ | macOS: NSSpeechSynthesizer, tvOS: AVSpeechSynthesizer |
+| Clipboard | ✅ | ✅ | macOS: NSPasteboard, tvOS: in-process |
+| Browser | — | ✅ | Open URLs via NSWorkspace |
+| Share | — | ✅ | NSSharingServicePicker |
+| Launcher | — | ✅ | Open files/URIs via NSWorkspace |
+
+## Prerequisites
+
+> **Important:** JetBrains Rider and Visual Studio will not compile these projects. The `net10.0-tvos` and `net10.0-macos` TFMs are not recognized by IDE build systems. All building and running **must be done through the CLI** using the `dotnet` command.
+
+### .NET 10 SDK
+
+Install the latest .NET 10 preview SDK from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+### Workloads
+
+```bash
+dotnet workload install tvos
+dotnet workload install macos
+dotnet workload list   # verify
+```
+
+### Xcode
+
+Xcode must be installed for Apple platform SDKs:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app
+```
+
+## Building & Running
+
+```bash
+# Build
+dotnet build samples/SampleMac/SampleMac.csproj
+dotnet build samples/SampleTv/SampleTv.csproj
+
+# Run macOS
+dotnet build samples/SampleMac/SampleMac.csproj -t:Run
+
+# Run tvOS (simulator)
+dotnet build samples/SampleTv/SampleTv.csproj -t:Run
+```
+
+> **Note:** Do not use `dotnet build "MAUI Platforms.slnx"` — build projects individually.
+
+## Key Technical Notes
+
+* MAUI NuGet packages resolve to the `net10.0` (platform-agnostic) assembly for unsupported TFMs. `ToPlatform()` returns `object` — custom `ViewExtensions` casts to the native view type.
+* The platform-agnostic `ViewHandler` has no-op `PlatformArrange` and returns `Size.Zero`. Custom base handlers (`MacOSViewHandler`/`TvOSViewHandler`) override these to bridge MAUI layout to native view frames.
+* macOS NSView uses bottom-left origin by default. All container views override `IsFlipped => true` for MAUI's top-left coordinate system.
+* macOS NSView has no `SizeThatFits()` — the base handler uses `IntrinsicContentSize` and `FittingSize`, with a custom `SizeThatFits` method on `MacOSContainerView`.
+* Sample apps use pure C# pages (no XAML) to avoid XAML compilation issues on unsupported platforms.
+* The macOS window uses `FullSizeContentView` style with `TitlebarAppearsTransparent = true` so the Shell sidebar extends under the titlebar with proper macOS vibrancy.
 
 ## Dialogs
 
 Dialogs (`DisplayAlertAsync`, `DisplayPromptAsync`) are supported on **macOS** via `NSAlert`, but are **not yet supported on tvOS**.
 
-MAUI's dialog system is driven by an internal `AlertManager` class that resolves an `IAlertManagerSubscription` implementation from DI. On macOS, we register a custom implementation using `DispatchProxy` to implement the internal interface via reflection. However, **tvOS uses AOT compilation which does not support dynamic code generation** — `DispatchProxy` throws `PlatformNotSupportedException` at runtime.
+MAUI's dialog system uses an internal `AlertManager` with `IAlertManagerSubscription`. On macOS, we implement this via `DispatchProxy` reflection. tvOS uses AOT compilation which doesn't support `DispatchProxy`. Until `IAlertManagerSubscription` is made public in MAUI (see the [proposal](https://gist.github.com/Redth/fc07a982bcff79cf925168f241a12c95)), tvOS dialog support is blocked.
 
-Until `IAlertManagerSubscription` is made public in MAUI (see the [proposal](https://gist.github.com/Redth/fc07a982bcff79cf925168f241a12c95)), tvOS dialog support is blocked. The implementation is commented out in `src/Microsoft.Maui.Platform.TvOS/Platform/AlertManagerSubscription.cs` and the sample uses `#if !TVOS` compiler directives to exclude dialog UI on Apple TV.
+## TODO
+
+### General
+* Multitarget `Sample` project
+* XAML Compilation
+* Multi-window support
+* Accessibility support
+
+### tvOS Specific
+* Focus Engine integration
+* Top Shelf extensions
+* TV remote menu button handling
+
+### macOS Specific
+* Touch Bar support
+* Drag and drop
+* Multiple windows
+
+### Broader Goals
+* NuGet packaging
+* CI/CD pipeline

@@ -30,8 +30,6 @@ public class HomePage : ContentPage
 						HorizontalTextAlignment = TextAlignment.Center,
 						TextColor = Colors.Gray,
 					},
-					new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
-
 					new Label
 					{
 						Text = "This sample app demonstrates the Microsoft.Maui.Platform.MacOS backend — " +
@@ -44,6 +42,7 @@ public class HomePage : ContentPage
 					{
 						Stroke = Colors.DodgerBlue,
 						StrokeThickness = 1,
+						StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
 						Padding = new Thickness(16),
 						Content = new VerticalStackLayout
 						{

@@ -174,7 +174,6 @@ public class MapPage : ContentPage
                     FontSize = 24,
                     FontAttributes = FontAttributes.Bold,
                 },
-                new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
                 locationPicker,
 #if MACAPP
                 new HorizontalStackLayout

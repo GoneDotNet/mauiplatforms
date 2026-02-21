@@ -12,12 +12,17 @@ public partial class EntryHandler : MacOSViewHandler<IEntry, NSTextField>
             [nameof(ITextInput.Text)] = MapText,
             [nameof(ITextStyle.TextColor)] = MapTextColor,
             [nameof(ITextStyle.Font)] = MapFont,
+            [nameof(ITextStyle.CharacterSpacing)] = MapCharacterSpacing,
             [nameof(IPlaceholder.Placeholder)] = MapPlaceholder,
             [nameof(IPlaceholder.PlaceholderColor)] = MapPlaceholderColor,
             [nameof(IEntry.IsPassword)] = MapIsPassword,
+            [nameof(IEntry.ReturnType)] = MapReturnType,
             [nameof(ITextInput.IsReadOnly)] = MapIsReadOnly,
             [nameof(ITextAlignment.HorizontalTextAlignment)] = MapHorizontalTextAlignment,
             [nameof(ITextInput.MaxLength)] = MapMaxLength,
+            [nameof(IEntry.CursorPosition)] = MapCursorPosition,
+            [nameof(IEntry.SelectionLength)] = MapSelectionLength,
+            [nameof(IEntry.IsTextPredictionEnabled)] = MapIsTextPredictionEnabled,
         };
 
     bool _updating;
@@ -50,7 +55,15 @@ public partial class EntryHandler : MacOSViewHandler<IEntry, NSTextField>
         base.DisconnectHandler(platformView);
     }
 
-    void OnTextChanged(object? sender, EventArgs e)
+    internal void SetPlatformView(NSTextField newView)
+    {
+        // Use reflection to update the handler's PlatformView reference
+        // since ViewHandler doesn't expose a public setter
+        var prop = typeof(ViewHandler).GetProperty("PlatformView");
+        prop?.SetValue(this, newView);
+    }
+
+    internal void OnTextChanged(object? sender, EventArgs e)
     {
         if (_updating || VirtualView == null)
             return;
@@ -67,7 +80,7 @@ public partial class EntryHandler : MacOSViewHandler<IEntry, NSTextField>
         }
     }
 
-    void OnEditingEnded(object? sender, EventArgs e)
+    internal void OnEditingEnded(object? sender, EventArgs e)
     {
         VirtualView?.Completed();
     }
@@ -90,10 +103,7 @@ public partial class EntryHandler : MacOSViewHandler<IEntry, NSTextField>
     public static void MapFont(EntryHandler handler, IEntry entry)
     {
         if (entry is ITextStyle textStyle)
-        {
-            var fontSize = textStyle.Font.Size > 0 ? (nfloat)textStyle.Font.Size : (nfloat)13.0;
-            handler.PlatformView.Font = NSFont.SystemFontOfSize(fontSize);
-        }
+            handler.PlatformView.Font = textStyle.Font.ToNSFont();
     }
 
     public static void MapPlaceholder(EntryHandler handler, IEntry entry)
@@ -119,8 +129,58 @@ public partial class EntryHandler : MacOSViewHandler<IEntry, NSTextField>
     public static void MapIsPassword(EntryHandler handler, IEntry entry)
     {
         // NSSecureTextField is a separate class on macOS.
-        // For simplicity, we don't swap the control type dynamically here.
-        // A production implementation would need to swap between NSTextField and NSSecureTextField.
+        // We swap between NSTextField and NSSecureTextField by rebuilding the platform view.
+        var currentView = handler.PlatformView;
+        bool isCurrentlySecure = currentView is NSSecureTextField;
+
+        if (entry.IsPassword == isCurrentlySecure)
+            return;
+
+        // Preserve state before swap
+        var text = currentView.StringValue;
+        var frame = currentView.Frame;
+
+        // Disconnect old view
+        currentView.Changed -= handler.OnTextChanged;
+        currentView.EditingEnded -= handler.OnEditingEnded;
+
+        NSTextField newView;
+        if (entry.IsPassword)
+        {
+            newView = new NSSecureTextField
+            {
+                Bordered = true,
+                Bezeled = true,
+                BezelStyle = NSTextFieldBezelStyle.Rounded,
+                Frame = frame,
+                StringValue = text ?? string.Empty,
+            };
+        }
+        else
+        {
+            newView = new NSTextField
+            {
+                Bordered = true,
+                Bezeled = true,
+                BezelStyle = NSTextFieldBezelStyle.Rounded,
+                Frame = frame,
+                StringValue = text ?? string.Empty,
+            };
+        }
+
+        // Replace in view hierarchy
+        var superview = currentView.Superview;
+        if (superview != null)
+        {
+            superview.ReplaceSubviewWith(currentView, newView);
+        }
+
+        // Connect new view
+        newView.Changed += handler.OnTextChanged;
+        newView.EditingEnded += handler.OnEditingEnded;
+
+        // Update handler's platform view reference
+        handler.SetPlatformView(newView);
     }
 
     public static void MapIsReadOnly(EntryHandler handler, IEntry entry)
@@ -149,6 +209,53 @@ public partial class EntryHandler : MacOSViewHandler<IEntry, NSTextField>
             var currentText = handler.PlatformView.StringValue ?? string.Empty;
             if (currentText.Length > textInput.MaxLength)
                 handler.PlatformView.StringValue = currentText[..textInput.MaxLength];
+        }
+    }
+
+    public static void MapCharacterSpacing(EntryHandler handler, IEntry entry)
+    {
+        if (entry is ITextStyle textStyle && textStyle.CharacterSpacing != 0)
+        {
+            var text = handler.PlatformView.StringValue ?? string.Empty;
+            var attrStr = new NSMutableAttributedString(text);
+            attrStr.AddAttribute(NSStringAttributeKey.KerningAdjustment,
+                NSNumber.FromDouble(textStyle.CharacterSpacing), new NSRange(0, text.Length));
+            handler.PlatformView.AttributedStringValue = attrStr;
+        }
+    }
+
+    public static void MapReturnType(EntryHandler handler, IEntry entry)
+    {
+        // macOS NSTextField doesn't have a ReturnType concept like iOS keyboard return key.
+        // The return key always submits the field on macOS.
+    }
+
+    public static void MapCursorPosition(EntryHandler handler, IEntry entry)
+    {
+        if (handler.PlatformView.CurrentEditor is NSTextView editor)
+        {
+            var position = Math.Min(entry.CursorPosition, (handler.PlatformView.StringValue ?? string.Empty).Length);
+            editor.SetSelectedRange(new NSRange(position, 0));
+        }
+    }
+
+    public static void MapSelectionLength(EntryHandler handler, IEntry entry)
+    {
+        if (handler.PlatformView.CurrentEditor is NSTextView editor)
+        {
+            var text = handler.PlatformView.StringValue ?? string.Empty;
+            var start = Math.Min(entry.CursorPosition, text.Length);
+            var length = Math.Min(entry.SelectionLength, text.Length - start);
+            editor.SetSelectedRange(new NSRange(start, length));
+        }
+    }
+
+    public static void MapIsTextPredictionEnabled(EntryHandler handler, IEntry entry)
+    {
+        // macOS text prediction/autocomplete can be controlled via NSTextView settings
+        if (handler.PlatformView.CurrentEditor is NSTextView editor)
+        {
+            editor.AutomaticTextCompletionEnabled = entry.IsTextPredictionEnabled;
         }
     }
 }

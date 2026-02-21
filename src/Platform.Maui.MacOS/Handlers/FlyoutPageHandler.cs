@@ -17,15 +17,28 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
 
     NSView? _currentFlyoutView;
     NSView? _currentDetailView;
+    bool _initialDividerSet;
+    NSLayoutConstraint? _flyoutWidthConstraint;
 
     public Action<CGRect>? OnFlyoutLayout { get; set; }
     public Action<CGRect>? OnDetailLayout { get; set; }
 
-    public double FlyoutWidth { get; set; } = 250;
+    double _flyoutWidth = 185;
+    public double FlyoutWidth
+    {
+        get => _flyoutWidth;
+        set
+        {
+            _flyoutWidth = value;
+            if (_flyoutWidthConstraint != null)
+                _flyoutWidthConstraint.Constant = (nfloat)value;
+            _splitView.SetPositionOfDivider((nfloat)value, 0);
+        }
+    }
 
     public FlyoutContainerView()
     {
-        _flyoutContainer = new NSView { WantsLayer = true };
+        _flyoutContainer = new NSView { WantsLayer = true, TranslatesAutoresizingMaskIntoConstraints = false };
         _detailContainer = new NSView { WantsLayer = true };
 
         _splitView = new NSSplitView
@@ -38,6 +51,15 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
 
         _splitView.AddArrangedSubview(_flyoutContainer);
         _splitView.AddArrangedSubview(_detailContainer);
+
+        // Pin flyout width with a high-priority constraint
+        _flyoutWidthConstraint = _flyoutContainer.WidthAnchor.ConstraintEqualTo((nfloat)_flyoutWidth);
+        _flyoutWidthConstraint.Priority = (float)NSLayoutPriority.DefaultHigh; // 750
+        _flyoutWidthConstraint.Active = true;
+
+        // Flyout keeps its width; detail absorbs all resize
+        _splitView.SetHoldingPriority(251, 0);
+        _splitView.SetHoldingPriority(249, 1);
 
         AddSubview(_splitView);
 
@@ -87,6 +109,12 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
     {
         base.Layout();
 
+        if (!_initialDividerSet && Bounds.Width > 0)
+        {
+            _initialDividerSet = true;
+            _splitView.SetPositionOfDivider((nfloat)_flyoutWidth, 0);
+        }
+
         if (_currentFlyoutView != null)
         {
             _currentFlyoutView.Frame = _flyoutContainer.Bounds;
@@ -100,17 +128,25 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
         }
     }
 
-    // NSSplitViewDelegate — constrain the flyout (sidebar) width
+    // NSSplitViewDelegate — lock the flyout (sidebar) width
     [Foundation.Export("splitView:constrainMinCoordinate:ofSubviewAt:")]
     public nfloat SetMinCoordinate(NSSplitView splitView, nfloat proposedMinimumPosition, nint dividerIndex)
     {
-        return (nfloat)(FlyoutWidth * 0.5);
+        return (nfloat)FlyoutWidth;
     }
 
     [Foundation.Export("splitView:constrainMaxCoordinate:ofSubviewAt:")]
     public nfloat SetMaxCoordinate(NSSplitView splitView, nfloat proposedMaximumPosition, nint dividerIndex)
     {
-        return (nfloat)(FlyoutWidth * 1.5);
+        return (nfloat)FlyoutWidth;
+    }
+
+    // Prevent NSSplitView from proportionally resizing the flyout pane during window resize
+    [Foundation.Export("splitView:shouldAdjustSizeOfSubview:")]
+    public bool ShouldAdjustSizeOfSubview(NSSplitView splitView, NSView view)
+    {
+        // Only the detail pane should resize; flyout stays fixed
+        return view != _flyoutContainer;
     }
 }
 
@@ -209,6 +245,7 @@ public partial class FlyoutPageHandler : MacOSViewHandler<IFlyoutView, FlyoutCon
 
     public static void MapFlyoutWidth(FlyoutPageHandler handler, IFlyoutView view)
     {
-        handler.PlatformView.FlyoutWidth = view.FlyoutWidth > 0 ? view.FlyoutWidth : 250;
+        handler.PlatformView.FlyoutWidth = view.FlyoutWidth > 0 ? view.FlyoutWidth : 185;
+        handler.PlatformView.SetFlyoutVisible(true);
     }
 }

@@ -37,10 +37,6 @@ public class BatteryNetworkPage : ContentPage
 				Padding = new Thickness(24),
 				Children =
 				{
-					new Label { Text = "Battery & Network", FontSize = 24, FontAttributes = FontAttributes.Bold },
-					new Label { Text = "Live system status via IOKit and SystemConfiguration", FontSize = 14, TextColor = Colors.Gray },
-					new BoxView { HeightRequest = 2, Color = Colors.DodgerBlue },
-
 					refreshButton,
 
 					SectionHeader("🔋 Battery"),
@@ -94,5 +90,5 @@ public class BatteryNetworkPage : ContentPage
 		Text = text, FontSize = 18, FontAttributes = FontAttributes.Bold,
 		Margin = new Thickness(0, 8, 0, 4),
 	};
-	static BoxView Separator() => new() { HeightRequest = 1, Color = Colors.LightGray, Margin = new Thickness(0, 4) };
+	static Border Separator() => new() { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0, Margin = new Thickness(0, 4) };
 }

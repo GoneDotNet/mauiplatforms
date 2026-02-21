@@ -19,11 +19,16 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)"/>
+        <PackageReference Include="AathifMahir.Maui.MauiIcons.Cupertino" Version="5.0.0" />
+        <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
         <ProjectReference Include="..\..\src\Platform.Maui.MacOS\Platform.Maui.MacOS.csproj" />
+        <ProjectReference Include="..\..\src\Platform.Maui.MacOS.BlazorWebView\Platform.Maui.MacOS.BlazorWebView.csproj" />
         <ProjectReference Include="..\..\src\Platform.Maui.Essentials.MacOS\Platform.Maui.Essentials.MacOS.csproj" />
     </ItemGroup>
+
+    <!-- Import Platform.Maui.MacOS build targets (normally comes from NuGet package) -->
+    <Import Project="..\..\src\Platform.Maui.MacOS\build\Platform.Maui.MacOS.targets" />
 
     <ItemGroup>
         <Compile Include="..\Sample\Platforms\macOS\App.cs">
@@ -62,6 +67,18 @@
         <Compile Include="..\Sample\Pages\GraphicsPage.cs">
             <Link>Pages\GraphicsPage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\Pages\GesturesPage.cs">
+            <Link>Pages\GesturesPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\ShapesPage.cs">
+            <Link>Pages\ShapesPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\TransformsPage.cs">
+            <Link>Pages\TransformsPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\WebViewPage.cs">
+            <Link>Pages\WebViewPage.cs</Link>
+        </Compile>
         <Compile Include="..\Sample\Pages\DeviceInfoPage.cs">
             <Link>Pages\DeviceInfoPage.cs</Link>
         </Compile>
@@ -89,10 +106,36 @@
         <Compile Include="..\Sample\Pages\MapPage.cs">
             <Link>Pages\MapPage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\Pages\FontsPage.cs">
+            <Link>Pages\FontsPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\ListViewPage.cs">
+            <Link>Pages\ListViewPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\TableViewPage.cs">
+            <Link>Pages\TableViewPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\CarouselViewPage.cs">
+            <Link>Pages\CarouselViewPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\RadioButtonPage.cs">
+            <Link>Pages\RadioButtonPage.cs</Link>
+        </Compile>
+        <Compile Include="..\Sample\Pages\FormattedTextPage.cs">
+            <Link>Pages\FormattedTextPage.cs</Link>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>
         <BundleResource Include="..\Sample\wwwroot\**" Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <MauiIcon Include="..\Sample\Resources\AppIcon\appicon.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <MauiFont Include="..\Sample\Resources\Fonts\*" />
     </ItemGroup>
 
 </Project>

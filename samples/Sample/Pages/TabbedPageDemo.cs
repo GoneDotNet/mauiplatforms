@@ -20,9 +20,8 @@ public class TabbedPageDemo : TabbedPage
 					Padding = new Thickness(24),
 					Children =
 					{
-						new Label { Text = "TabbedPage Overview", FontSize = 24, FontAttributes = FontAttributes.Bold },
 						new Label { Text = "This is a real TabbedPage rendered with native NSTabView.", FontSize = 13, TextColor = Colors.Gray },
-						new BoxView { HeightRequest = 1, Color = Colors.LightGray },
+						new Border { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0 },
 						new Label { Text = "✅ Native NSTabView tab rendering", FontSize = 14 },
 						new Label { Text = "✅ Automatic tab label from Page.Title", FontSize = 14 },
 						new Label { Text = "✅ Tab switching syncs with MAUI CurrentPage", FontSize = 14 },
@@ -44,7 +43,7 @@ public class TabbedPageDemo : TabbedPage
 					Children =
 					{
 						new Label { Text = "Settings", FontSize = 20, FontAttributes = FontAttributes.Bold },
-						new BoxView { HeightRequest = 1, Color = Colors.LightGray },
+						new Border { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0 },
 						BuildSettingRow("Dark Mode", new Switch()),
 						BuildSettingRow("Notifications", new Switch { IsToggled = true }),
 						BuildSettingRow("Volume", new Slider { Minimum = 0, Maximum = 100, Value = 75 }),
@@ -66,12 +65,12 @@ public class TabbedPageDemo : TabbedPage
 					Children =
 					{
 						new Label { Text = "Statistics", FontSize = 20, FontAttributes = FontAttributes.Bold },
-						new BoxView { HeightRequest = 1, Color = Colors.LightGray },
+						new Border { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0 },
 						BuildStatRow("Projects", "12", Colors.DodgerBlue),
 						BuildStatRow("Tasks Done", "847", Colors.MediumSeaGreen),
 						BuildStatRow("Open Issues", "23", Colors.Orange),
 						BuildStatRow("Contributors", "6", Colors.MediumOrchid),
-						new BoxView { HeightRequest = 1, Color = Colors.LightGray },
+						new Border { HeightRequest = 1, BackgroundColor = Colors.Gray, Opacity = 0.3, StrokeThickness = 0 },
 						new ProgressBar { Progress = 0.73 },
 						new Label { Text = "73% sprint completion", FontSize = 12, TextColor = Colors.Gray },
 					}

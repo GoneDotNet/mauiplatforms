@@ -1,6 +1,7 @@
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
+using Microsoft.Maui.Platform.MacOS;
 
 namespace Sample;
 
@@ -11,47 +12,47 @@ public class FlyoutDemoPage : FlyoutPage
         Title = "FlyoutPage Demo";
         FlyoutLayoutBehavior = FlyoutLayoutBehavior.Split;
 
-        var homeButton = CreateMenuButton("Home", AppColors.AccentBlue);
-        var settingsButton = CreateMenuButton("Settings", AppColors.AccentPurple);
-        var aboutButton = CreateMenuButton("About", AppColors.AccentGreen);
-
-        homeButton.Clicked += (s, e) => Detail = new NavigationPage(CreateDetailPage("Home", "Welcome home! Browse your content here.", "#4A90E2"));
-        settingsButton.Clicked += (s, e) => Detail = new NavigationPage(CreateDetailPage("Settings", "Configure your preferences and options.", "#7B68EE"));
-        aboutButton.Clicked += (s, e) => Detail = new NavigationPage(CreateDetailPage("About", "MAUI macOS FlyoutPage demo.\nSidebar powered by NSSplitView.", "#2ECC71"));
-
-        var flyoutPage = new ContentPage
-        {
-            Title = "Menu",
-            Content = new ScrollView
-            {
-                Content = new VerticalStackLayout
-                {
-                    Padding = new Thickness(20),
-                    Spacing = 12,
-                    Children =
-                    {
-                        new Label
-                        {
-                            Text = "Sidebar",
-                            FontSize = 24,
-                            FontAttributes = FontAttributes.Bold,
-                        }.WithPrimaryText(),
-                        new BoxView
-                        {
-                            Color = AppColors.AccentBlue,
-                            HeightRequest = 2,
-                        },
-                        homeButton,
-                        settingsButton,
-                        aboutButton,
-                    },
-                },
-            },
-        };
-        flyoutPage.WithSidebarBackground();
-        Flyout = flyoutPage;
+        // Empty flyout page (required by FlyoutPage API, but native sidebar ignores it)
+        Flyout = new ContentPage { Title = "Menu" };
 
         Detail = new NavigationPage(CreateDetailPage("Home", "Welcome home! Browse your content here.", "#4A90E2"));
+
+        // Configure native sidebar items
+        MacOSFlyoutPage.SetSidebarItems(this, new List<MacOSSidebarItem>
+        {
+            new MacOSSidebarItem
+            {
+                Title = "Favorites",
+                Children = new List<MacOSSidebarItem>
+                {
+                    new() { Title = "Home", SystemImage = "house.fill", Tag = "home" },
+                    new() { Title = "Settings", SystemImage = "gear", Tag = "settings" },
+                    new() { Title = "About", SystemImage = "info.circle", Tag = "about" },
+                }
+            },
+            new MacOSSidebarItem
+            {
+                Title = "More",
+                Children = new List<MacOSSidebarItem>
+                {
+                    new() { Title = "Notifications", SystemImage = "bell.fill", Tag = "notifications" },
+                    new() { Title = "Profile", SystemImage = "person.circle", Tag = "profile" },
+                }
+            },
+        });
+
+        MacOSFlyoutPage.SetSidebarSelectionChanged(this, item =>
+        {
+            Detail = item.Tag switch
+            {
+                "home" => new NavigationPage(CreateDetailPage("Home", "Welcome home! Browse your content here.", "#4A90E2")),
+                "settings" => new NavigationPage(CreateDetailPage("Settings", "Configure your preferences and options.", "#7B68EE")),
+                "about" => new NavigationPage(CreateDetailPage("About", "MAUI macOS FlyoutPage demo.\nSidebar powered by native NSOutlineView source list.", "#2ECC71")),
+                "notifications" => new NavigationPage(CreateDetailPage("Notifications", "Stay up to date with alerts and messages.", "#F39C12")),
+                "profile" => new NavigationPage(CreateDetailPage("Profile", "View and edit your profile information.", "#1ABC9C")),
+                _ => Detail,
+            };
+        });
     }
 
     static ContentPage CreateDetailPage(string title, string description, string accentColor)
@@ -67,12 +68,14 @@ public class FlyoutDemoPage : FlyoutPage
                 HorizontalOptions = LayoutOptions.Center,
                 Children =
                 {
-                    new BoxView
+                    new Border
                     {
-                        Color = Color.FromArgb(accentColor),
+                        BackgroundColor = Color.FromArgb(accentColor),
                         HeightRequest = 4,
                         WidthRequest = 200,
                         HorizontalOptions = LayoutOptions.Center,
+                        StrokeThickness = 0,
+                        StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 2 },
                     },
                     new Label
                     {
@@ -92,11 +95,4 @@ public class FlyoutDemoPage : FlyoutPage
         };
         return page.WithPageBackground();
     }
-
-    static Button CreateMenuButton(string text, Color color) => new()
-    {
-        Text = text,
-        BackgroundColor = color,
-        TextColor = Colors.White,
-    };
 }

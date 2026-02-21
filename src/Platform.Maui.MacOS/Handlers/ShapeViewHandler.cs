@@ -1,6 +1,8 @@
 using System.Linq;
 using CoreAnimation;
 using CoreGraphics;
+using Foundation;
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Handlers;
 using AppKit;
@@ -9,6 +11,7 @@ namespace Microsoft.Maui.Platform.MacOS.Handlers;
 
 /// <summary>
 /// NSView subclass for shape rendering that enables layer-backing and flipped coordinates.
+/// Overrides mouse event methods to ensure gesture recognizers receive events.
 /// </summary>
 internal class ShapeNSView : NSView
 {
@@ -18,6 +21,51 @@ internal class ShapeNSView : NSView
     }
 
     public override bool IsFlipped => true;
+
+    public override bool AcceptsFirstResponder() => true;
+
+    public override void MouseDown(NSEvent theEvent) => base.MouseDown(theEvent);
+    public override void MouseDragged(NSEvent theEvent) => base.MouseDragged(theEvent);
+    public override void MouseUp(NSEvent theEvent) => base.MouseUp(theEvent);
+
+    public override void MouseEntered(NSEvent theEvent)
+    {
+        foreach (var area in TrackingAreas())
+        {
+            if (area is MacOSPointerTrackingArea pointerArea)
+            {
+                var parent = (pointerArea.Recognizer as IElement)?.FindParentOfType<View>();
+                pointerArea.FireEntered(parent, theEvent);
+            }
+        }
+        base.MouseEntered(theEvent);
+    }
+
+    public override void MouseExited(NSEvent theEvent)
+    {
+        foreach (var area in TrackingAreas())
+        {
+            if (area is MacOSPointerTrackingArea pointerArea)
+            {
+                var parent = (pointerArea.Recognizer as IElement)?.FindParentOfType<View>();
+                pointerArea.FireExited(parent, theEvent);
+            }
+        }
+        base.MouseExited(theEvent);
+    }
+
+    public override void MouseMoved(NSEvent theEvent)
+    {
+        foreach (var area in TrackingAreas())
+        {
+            if (area is MacOSPointerTrackingArea pointerArea)
+            {
+                var parent = (pointerArea.Recognizer as IElement)?.FindParentOfType<View>();
+                pointerArea.FireMoved(parent, theEvent);
+            }
+        }
+        base.MouseMoved(theEvent);
+    }
 }
 
 public partial class ShapeViewHandler : MacOSViewHandler<IShapeView, NSView>
@@ -28,6 +76,11 @@ public partial class ShapeViewHandler : MacOSViewHandler<IShapeView, NSView>
             [nameof(IShapeView.Shape)] = MapShape,
             [nameof(IShapeView.Fill)] = MapFill,
             [nameof(IShapeView.Aspect)] = MapAspect,
+            [nameof(IShapeView.Stroke)] = MapStroke,
+            [nameof(IShapeView.StrokeThickness)] = MapStrokeThickness,
+            [nameof(IShapeView.StrokeDashPattern)] = MapStrokeDashPattern,
+            [nameof(IShapeView.StrokeLineCap)] = MapStrokeLineCap,
+            [nameof(IShapeView.StrokeLineJoin)] = MapStrokeLineJoin,
         };
 
     CAShapeLayer? _shapeLayer;
@@ -109,7 +162,49 @@ public partial class ShapeViewHandler : MacOSViewHandler<IShapeView, NSView>
             _shapeLayer.FillColor = solidPaint.Color.ToPlatformColor().CGColor;
         else
             _shapeLayer.FillColor = NSColor.Clear.CGColor;
+
+        // Apply stroke
+        if (shapeView.Stroke is SolidPaint strokePaint && strokePaint.Color != null)
+            _shapeLayer.StrokeColor = strokePaint.Color.ToPlatformColor().CGColor;
+        else
+            _shapeLayer.StrokeColor = NSColor.Clear.CGColor;
+
+        _shapeLayer.LineWidth = (nfloat)shapeView.StrokeThickness;
+
+        // Dash pattern
+        if (shapeView.StrokeDashPattern is { Length: > 0 } dashPattern)
+        {
+            _shapeLayer.LineDashPattern = dashPattern
+                .Select(d => NSNumber.FromFloat((float)(d * shapeView.StrokeThickness)))
+                .ToArray();
+        }
+        else
+        {
+            _shapeLayer.LineDashPattern = null;
+        }
+
+        // Line cap
+        _shapeLayer.LineCap = shapeView.StrokeLineCap switch
+        {
+            LineCap.Round => CAShapeLayer.CapRound,
+            LineCap.Square => CAShapeLayer.CapSquare,
+            _ => CAShapeLayer.CapButt,
+        };
+
+        // Line join
+        _shapeLayer.LineJoin = shapeView.StrokeLineJoin switch
+        {
+            LineJoin.Round => CAShapeLayer.JoinRound,
+            LineJoin.Bevel => CAShapeLayer.JoinBevel,
+            _ => CAShapeLayer.JoinMiter,
+        };
     }
+
+    public static void MapStroke(ShapeViewHandler handler, IShapeView shapeView) => handler.UpdateShape(shapeView);
+    public static void MapStrokeThickness(ShapeViewHandler handler, IShapeView shapeView) => handler.UpdateShape(shapeView);
+    public static void MapStrokeDashPattern(ShapeViewHandler handler, IShapeView shapeView) => handler.UpdateShape(shapeView);
+    public static void MapStrokeLineCap(ShapeViewHandler handler, IShapeView shapeView) => handler.UpdateShape(shapeView);
+    public static void MapStrokeLineJoin(ShapeViewHandler handler, IShapeView shapeView) => handler.UpdateShape(shapeView);
 
     static CGPath PathFToCGPath(PathF pathF)
     {
