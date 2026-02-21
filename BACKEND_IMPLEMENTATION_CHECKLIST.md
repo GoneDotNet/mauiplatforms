@@ -109,7 +109,7 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 
 | Control | Status | Notes |
 |---------|--------|-------|
-| [~] **CollectionView** | Partial | Maps ItemsSource, ItemTemplate via `NSScrollView`; missing SelectionMode, ScrollTo, grouping, virtualization, item spacing, layout modes, incremental loading |
+| [x] **CollectionView** | ✅ | `CollectionViewHandler` — NSScrollView-based with full virtualization, ItemTemplate, SelectionMode (single/multiple), LinearItemsLayout, GridItemsLayout (vertical/horizontal), grouping with headers/footers, EmptyView, Header/Footer (as flat items via DataTemplate), ScrollTo with Start/Center/End/MakeVisible positions, RemainingItemsThreshold for incremental loading, item spacing |
 | [x] **ListView** | ✅ | NSScrollView-based with DataTemplate, ViewCell, TextCell, ImageCell, SwitchCell, EntryCell, selection, header/footer, grouping |
 | [x] **CarouselView** | ✅ | `CarouselViewHandler` — horizontal paging with snap, position tracking, swipe |
 | [x] **IndicatorView** | ✅ | Page indicator dots with configurable size, color, and shape |
@@ -124,9 +124,9 @@ Items marked `[x]` have a handler or implementation present; items marked `[~]` 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | [x] **NavigationPage stack** | ✅ | PushAsync, PopAsync via `RequestNavigation` command |
-| [x] **Shell navigation** | ✅ | Shell.CurrentItem navigation, sidebar selection, flyout behavior |
+| [x] **Shell navigation** | ✅ | Shell.CurrentItem navigation, sidebar selection, flyout behavior, push/pop within ShellSection |
 | [x] **Deep linking** | ⚠️ | Partial — requires app-level Info.plist URL scheme + NSApplicationDelegate.OpenUrls override; framework supports it via lifecycle events |
-| [x] **Back button** | ✅ | N/A on macOS (no hardware back button); NavigationPage.PopAsync handles programmatic back navigation |
+| [x] **Back button** | ✅ | Toolbar back button via `MacOSToolbarManager` for both NavigationPage and Shell navigation stacks; pops via Navigation.PopAsync or ShellSection.Navigation.PopAsync |
 | [x] **ToolbarItems** | ✅ | `MacOSToolbarManager` manages `NSToolbar` items from `Page.ToolbarItems` |
 
 ---
