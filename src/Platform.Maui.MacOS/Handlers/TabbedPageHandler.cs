@@ -21,31 +21,17 @@ public class TabbedContainerView : MacOSContainerView
         _tabBar = new NSSegmentedControl
         {
             SegmentStyle = NSSegmentStyle.Automatic,
-            TranslatesAutoresizingMaskIntoConstraints = false,
             TrackingMode = NSSegmentSwitchTracking.SelectOne,
         };
         _tabBar.Activated += (s, e) => OnTabSelected?.Invoke(_tabBar.SelectedSegment);
 
         _contentArea = new NSView
         {
-            TranslatesAutoresizingMaskIntoConstraints = false,
             WantsLayer = true,
         };
 
         AddSubview(_tabBar);
         AddSubview(_contentArea);
-
-        NSLayoutConstraint.ActivateConstraints(new[]
-        {
-            _tabBar.TopAnchor.ConstraintEqualTo(TopAnchor, 10),
-            _tabBar.CenterXAnchor.ConstraintEqualTo(CenterXAnchor),
-            _tabBar.HeightAnchor.ConstraintEqualTo(30),
-
-            _contentArea.TopAnchor.ConstraintEqualTo(_tabBar.BottomAnchor, 10),
-            _contentArea.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
-            _contentArea.TrailingAnchor.ConstraintEqualTo(TrailingAnchor),
-            _contentArea.BottomAnchor.ConstraintEqualTo(BottomAnchor),
-        });
     }
 
     public void SetTabs(IList<string> titles)
@@ -76,6 +62,23 @@ public class TabbedContainerView : MacOSContainerView
     public override void Layout()
     {
         base.Layout();
+
+        var bounds = Bounds;
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+            return;
+
+        // Position tab bar below safe area (title bar)
+        var safeTop = (nfloat)SafeAreaInsets.Top;
+        var tabBarHeight = (nfloat)30;
+        var padding = (nfloat)10;
+
+        var tabSize = _tabBar.FittingSize;
+        var tabX = (bounds.Width - tabSize.Width) / 2;
+        _tabBar.Frame = new CGRect(tabX, safeTop + padding, tabSize.Width, tabBarHeight);
+
+        var contentTop = safeTop + padding + tabBarHeight + padding;
+        _contentArea.Frame = new CGRect(0, contentTop, bounds.Width, bounds.Height - contentTop);
+
         if (_currentPageView != null)
         {
             _currentPageView.Frame = _contentArea.Bounds;
