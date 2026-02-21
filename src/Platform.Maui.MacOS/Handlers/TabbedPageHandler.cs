@@ -103,6 +103,7 @@ public partial class TabbedPageHandler : MacOSViewHandler<ITabbedView, TabbedCon
     }
 
     TabbedPage? TabbedPage => VirtualView as TabbedPage;
+    bool _isSelectingPage;
 
     protected override TabbedContainerView CreatePlatformView()
     {
@@ -119,6 +120,7 @@ public partial class TabbedPageHandler : MacOSViewHandler<ITabbedView, TabbedCon
         if (TabbedPage != null)
         {
             TabbedPage.PagesChanged += OnPagesChanged;
+            TabbedPage.CurrentPageChanged += OnCurrentPageChanged;
             SetupTabs();
         }
     }
@@ -126,7 +128,10 @@ public partial class TabbedPageHandler : MacOSViewHandler<ITabbedView, TabbedCon
     protected override void DisconnectHandler(TabbedContainerView platformView)
     {
         if (TabbedPage != null)
+        {
             TabbedPage.PagesChanged -= OnPagesChanged;
+            TabbedPage.CurrentPageChanged -= OnCurrentPageChanged;
+        }
 
         base.DisconnectHandler(platformView);
     }
@@ -134,6 +139,16 @@ public partial class TabbedPageHandler : MacOSViewHandler<ITabbedView, TabbedCon
     void OnPagesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         SetupTabs();
+    }
+
+    void OnCurrentPageChanged(object? sender, EventArgs e)
+    {
+        if (_isSelectingPage || TabbedPage?.CurrentPage == null)
+            return;
+
+        var index = TabbedPage.Children.IndexOf(TabbedPage.CurrentPage);
+        if (index >= 0)
+            SelectPage(index);
     }
 
     void SetupTabs()
@@ -161,12 +176,20 @@ public partial class TabbedPageHandler : MacOSViewHandler<ITabbedView, TabbedCon
         if (TabbedPage == null || index < 0 || index >= TabbedPage.Children.Count || MauiContext == null)
             return;
 
-        TabbedPage.CurrentPage = TabbedPage.Children[index];
-        PlatformView.SelectTab(index);
+        _isSelectingPage = true;
+        try
+        {
+            TabbedPage.CurrentPage = TabbedPage.Children[index];
+            PlatformView.SelectTab(index);
 
-        var page = TabbedPage.Children[index];
-        var platformView = ((IView)page).ToMacOSPlatform(MauiContext);
-        PlatformView.ShowContent(platformView);
+            var page = TabbedPage.Children[index];
+            var platformView = ((IView)page).ToMacOSPlatform(MauiContext);
+            PlatformView.ShowContent(platformView);
+        }
+        finally
+        {
+            _isSelectingPage = false;
+        }
     }
 
     void OnContentLayout(CGRect bounds)

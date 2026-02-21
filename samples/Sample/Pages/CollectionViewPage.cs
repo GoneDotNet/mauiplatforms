@@ -534,15 +534,15 @@ class LargeListTab : ContentPage
 {
 	public LargeListTab()
 	{
-		Title = "Large (500)";
+		Title = "Large (10k)";
 
 		var items = new List<string>();
-		for (int i = 0; i < 500; i++)
+		for (int i = 0; i < 10000; i++)
 			items.Add($"Item {i + 1:N0}");
 
 		var countLabel = new Label
 		{
-			Text = $"500 items loaded",
+			Text = $"10,000 items — virtualized",
 			FontSize = 12,
 			TextColor = Colors.Gray,
 			Padding = new Thickness(16, 8),
@@ -567,9 +567,9 @@ class LargeListTab : ContentPage
 				countLabel,
 				new Label
 				{
-					Text = "⚠️ No virtualization yet — may be slow to load",
+					Text = "Virtualized — only visible items are rendered",
 					FontSize = 11,
-					TextColor = Colors.Orange,
+					TextColor = Colors.MediumSeaGreen,
 					Padding = new Thickness(16, 0, 16, 8),
 				},
 			}

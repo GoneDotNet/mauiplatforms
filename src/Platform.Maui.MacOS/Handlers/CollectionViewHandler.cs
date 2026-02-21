@@ -5,6 +5,8 @@ using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Handlers;
 using AppKit;
+using Foundation;
+using ObjCRuntime;
 
 namespace Microsoft.Maui.Platform.MacOS.Handlers;
 
@@ -26,9 +28,18 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
     FlippedDocumentView? _documentView;
     MacOSContainerView? _itemsContainer;
     INotifyCollectionChanged? _observableSource;
-    // Track item views for selection
-    readonly List<(NSView view, object item, int flatIndex)> _itemEntries = new();
+    NSObject? _scrollObserver;
+
+    // Virtualization state
+    readonly List<ItemInfo> _flatItems = new();
+    readonly Dictionary<int, (IView mauiView, NSView platformView)> _visibleViews = new();
+    readonly Dictionary<DataTemplate, Queue<IView>> _recyclePool = new();
+    nfloat _estimatedItemHeight = 44;
+    bool _positionsCalculated;
     int _selectedFlatIndex = -1;
+
+    // Threshold: render items this far beyond the visible rect
+    static readonly nfloat OverScanPixels = 200;
 
     public CollectionViewHandler() : base(Mapper)
     {
@@ -52,8 +63,15 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
         return scrollView;
     }
 
+    protected override void ConnectHandler(NSScrollView platformView)
+    {
+        base.ConnectHandler(platformView);
+        SubscribeScroll();
+    }
+
     protected override void DisconnectHandler(NSScrollView platformView)
     {
+        UnsubscribeScroll();
         UnsubscribeCollection();
         base.DisconnectHandler(platformView);
     }
@@ -61,128 +79,329 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
     public override void PlatformArrange(Rect rect)
     {
         base.PlatformArrange(rect);
-        LayoutItems(rect);
+        if (rect.Width > 0 && rect.Height > 0)
+        {
+            CalculatePositions(rect);
+            UpdateVisibleItems();
+        }
     }
 
-    #region Layout
+    #region Scroll Observation
 
-    void LayoutItems(Rect rect)
+    void SubscribeScroll()
     {
-        if (_itemsContainer == null || _documentView == null)
-            return;
+        var clipView = PlatformView.ContentView;
+        clipView.PostsBoundsChangedNotifications = true;
+        _scrollObserver = NSNotificationCenter.DefaultCenter.AddObserver(
+            NSView.BoundsChangedNotification,
+            OnScrollChanged,
+            clipView);
+    }
 
-        var subviews = _itemsContainer.Subviews;
-        if (subviews.Length == 0)
+    void UnsubscribeScroll()
+    {
+        if (_scrollObserver != null)
         {
-            _itemsContainer.Frame = new CGRect(0, 0, rect.Width, 0);
-            _documentView.Frame = new CGRect(0, 0, rect.Width, 0);
-            return;
+            NSNotificationCenter.DefaultCenter.RemoveObserver(_scrollObserver);
+            _scrollObserver = null;
         }
+    }
+
+    void OnScrollChanged(NSNotification notification)
+    {
+        UpdateVisibleItems();
+    }
+
+    #endregion
+
+    #region Virtualization
+
+    record ItemInfo
+    {
+        public object DataItem { get; init; } = null!;
+        public DataTemplate? Template { get; init; }
+        public bool IsGroupHeader { get; init; }
+        public bool IsGroupFooter { get; init; }
+        public nfloat Position { get; set; } // y for vertical, x for horizontal
+        public nfloat Size { get; set; }     // height for vertical, width for horizontal
+        public bool Measured { get; set; }
+    }
+
+    void CalculatePositions(Rect rect)
+    {
+        if (_flatItems.Count == 0)
+            return;
 
         var layout = (VirtualView as StructuredItemsView)?.ItemsLayout;
         var isHorizontal = GetOrientation(layout) == ItemsLayoutOrientation.Horizontal;
         var span = GetSpan(layout);
-        var itemSpacing = GetItemSpacing(layout);
-        var lineSpacing = GetLineSpacing(layout);
+        var itemSpacing = (nfloat)GetItemSpacing(layout);
+        var lineSpacing = (nfloat)GetLineSpacing(layout);
 
         if (span > 1)
-            LayoutGrid(subviews, rect, span, itemSpacing, lineSpacing, isHorizontal);
+            CalculateGridPositions(rect, span, itemSpacing, lineSpacing, isHorizontal);
         else if (isHorizontal)
-            LayoutHorizontal(subviews, rect, itemSpacing);
+            CalculateLinearPositions(rect, itemSpacing, isHorizontal: true);
         else
-            LayoutVertical(subviews, rect, itemSpacing);
+            CalculateLinearPositions(rect, itemSpacing, isHorizontal: false);
+
+        _positionsCalculated = true;
     }
 
-    void LayoutVertical(NSView[] subviews, Rect rect, double spacing)
+    void CalculateLinearPositions(Rect rect, nfloat spacing, bool isHorizontal)
     {
-        nfloat y = 0;
-        var width = (nfloat)rect.Width;
-
-        foreach (var subview in subviews)
+        nfloat offset = 0;
+        foreach (var info in _flatItems)
         {
-            var height = MeasureItemHeight(subview, width);
-            subview.Frame = new CGRect(0, y, width, height);
-            y += height + (nfloat)spacing;
+            info.Position = offset;
+            if (!info.Measured)
+                info.Size = _estimatedItemHeight;
+            offset += info.Size + spacing;
         }
 
-        var totalHeight = y - (nfloat)spacing;
-        if (totalHeight < 0) totalHeight = 0;
-        _itemsContainer!.Frame = new CGRect(0, 0, width, totalHeight);
-        _documentView!.Frame = new CGRect(0, 0, width, totalHeight);
-    }
-
-    void LayoutHorizontal(NSView[] subviews, Rect rect, double spacing)
-    {
-        nfloat x = 0;
-        var height = (nfloat)rect.Height;
-
-        foreach (var subview in subviews)
+        var totalSize = offset > 0 ? offset - spacing : 0;
+        if (isHorizontal)
         {
-            var width = MeasureItemWidth(subview, height);
-            subview.Frame = new CGRect(x, 0, width, height);
-            x += width + (nfloat)spacing;
+            _itemsContainer!.Frame = new CGRect(0, 0, totalSize, rect.Height);
+            _documentView!.Frame = new CGRect(0, 0, totalSize, rect.Height);
         }
-
-        var totalWidth = x - (nfloat)spacing;
-        if (totalWidth < 0) totalWidth = 0;
-        _itemsContainer!.Frame = new CGRect(0, 0, totalWidth, height);
-        _documentView!.Frame = new CGRect(0, 0, totalWidth, height);
+        else
+        {
+            _itemsContainer!.Frame = new CGRect(0, 0, rect.Width, totalSize);
+            _documentView!.Frame = new CGRect(0, 0, rect.Width, totalSize);
+        }
     }
 
-    void LayoutGrid(NSView[] subviews, Rect rect, int span, double hSpacing, double vSpacing, bool isHorizontal)
+    void CalculateGridPositions(Rect rect, int span, nfloat hSpacing, nfloat vSpacing, bool isHorizontal)
     {
         if (isHorizontal)
         {
-            // Horizontal grid: span = number of rows, items flow left-to-right
-            var rowHeight = ((nfloat)rect.Height - (nfloat)vSpacing * (span - 1)) / span;
+            var rowHeight = ((nfloat)rect.Height - vSpacing * (span - 1)) / span;
             if (rowHeight < 20) rowHeight = 20;
-            var colWidth = rowHeight; // square cells by default
 
             nfloat x = 0;
-            int col = 0;
-            for (int i = 0; i < subviews.Length; i++)
+            nfloat maxColWidth = _estimatedItemHeight;
+            for (int i = 0; i < _flatItems.Count; i++)
             {
                 int row = i % span;
                 if (row == 0 && i > 0)
                 {
-                    x += colWidth + (nfloat)hSpacing;
-                    col++;
+                    x += maxColWidth + hSpacing;
+                    maxColWidth = _estimatedItemHeight;
                 }
-                var y = row * (rowHeight + (nfloat)vSpacing);
-                // Let items specify their own width
-                colWidth = MeasureItemWidth(subviews[i], rowHeight);
-                subviews[i].Frame = new CGRect(x, y, colWidth, rowHeight);
+                _flatItems[i].Position = x;
+                _flatItems[i].Size = _flatItems[i].Measured ? _flatItems[i].Size : _estimatedItemHeight;
+                if (_flatItems[i].Size > maxColWidth) maxColWidth = _flatItems[i].Size;
             }
-
-            var totalWidth = x + colWidth;
+            var totalWidth = x + maxColWidth;
             _itemsContainer!.Frame = new CGRect(0, 0, totalWidth, rect.Height);
             _documentView!.Frame = new CGRect(0, 0, totalWidth, rect.Height);
         }
         else
         {
-            // Vertical grid: span = number of columns, items flow top-to-bottom
-            var totalHSpacing = (nfloat)hSpacing * (span - 1);
+            var totalHSpacing = hSpacing * (span - 1);
             var colWidth = ((nfloat)rect.Width - totalHSpacing) / span;
             if (colWidth < 20) colWidth = 20;
 
-            nfloat maxY = 0;
             var colTops = new nfloat[span];
-
-            for (int i = 0; i < subviews.Length; i++)
+            for (int i = 0; i < _flatItems.Count; i++)
             {
                 int col = i % span;
-                var x = col * (colWidth + (nfloat)hSpacing);
-                var itemHeight = MeasureItemHeight(subviews[i], colWidth);
-
-                subviews[i].Frame = new CGRect(x, colTops[col], colWidth, itemHeight);
-                colTops[col] += itemHeight + (nfloat)vSpacing;
-                if (colTops[col] > maxY) maxY = colTops[col];
+                _flatItems[i].Position = colTops[col];
+                if (!_flatItems[i].Measured)
+                    _flatItems[i].Size = _estimatedItemHeight;
+                colTops[col] += _flatItems[i].Size + vSpacing;
             }
-
+            nfloat maxY = 0;
+            foreach (var t in colTops) if (t > maxY) maxY = t;
             _itemsContainer!.Frame = new CGRect(0, 0, rect.Width, maxY);
             _documentView!.Frame = new CGRect(0, 0, rect.Width, maxY);
         }
     }
+
+    void UpdateVisibleItems()
+    {
+        if (_itemsContainer == null || _documentView == null || !_positionsCalculated || _flatItems.Count == 0)
+            return;
+
+        var visibleRect = PlatformView.ContentView.Bounds;
+        var layout = (VirtualView as StructuredItemsView)?.ItemsLayout;
+        var isHorizontal = GetOrientation(layout) == ItemsLayoutOrientation.Horizontal;
+        var span = GetSpan(layout);
+
+        nfloat viewStart, viewEnd;
+        if (isHorizontal)
+        {
+            viewStart = (nfloat)visibleRect.X - OverScanPixels;
+            viewEnd = (nfloat)(visibleRect.X + visibleRect.Width) + OverScanPixels;
+        }
+        else
+        {
+            viewStart = (nfloat)visibleRect.Y - OverScanPixels;
+            viewEnd = (nfloat)(visibleRect.Y + visibleRect.Height) + OverScanPixels;
+        }
+
+        if (viewStart < 0) viewStart = 0;
+
+        // Find which items should be visible
+        var shouldBeVisible = new HashSet<int>();
+        for (int i = 0; i < _flatItems.Count; i++)
+        {
+            var info = _flatItems[i];
+            var itemEnd = info.Position + info.Size;
+            if (itemEnd >= viewStart && info.Position <= viewEnd)
+                shouldBeVisible.Add(i);
+        }
+
+        // Remove items that are no longer visible
+        var toRemove = new List<int>();
+        foreach (var kvp in _visibleViews)
+        {
+            if (!shouldBeVisible.Contains(kvp.Key))
+                toRemove.Add(kvp.Key);
+        }
+        foreach (var idx in toRemove)
+        {
+            var (mauiView, platformView) = _visibleViews[idx];
+            platformView.RemoveFromSuperview();
+            RecycleView(idx, mauiView);
+            _visibleViews.Remove(idx);
+        }
+
+        // Add items that should be visible but aren't yet
+        var containerWidth = (nfloat)_itemsContainer.Frame.Width;
+        var containerHeight = (nfloat)_itemsContainer.Frame.Height;
+        var itemSpacing = (nfloat)GetItemSpacing(layout);
+        var lineSpacing = (nfloat)GetLineSpacing(layout);
+        bool needsRecalc = false;
+
+        foreach (var idx in shouldBeVisible)
+        {
+            if (_visibleViews.ContainsKey(idx))
+                continue;
+
+            var info = _flatItems[idx];
+            var (mauiView, platformView) = CreateOrReuseView(idx, info);
+
+            _itemsContainer.AddSubview(platformView);
+            _visibleViews[idx] = (mauiView, platformView);
+
+            // Measure and position
+            if (!info.Measured)
+            {
+                var measuredSize = isHorizontal
+                    ? MeasureItemWidth(platformView, containerHeight)
+                    : MeasureItemHeight(platformView, containerWidth);
+
+                if (Math.Abs(measuredSize - info.Size) > 1)
+                {
+                    info.Size = measuredSize;
+                    info.Measured = true;
+                    needsRecalc = true;
+                }
+                else
+                {
+                    info.Measured = true;
+                }
+            }
+
+            PositionItem(platformView, info, idx, isHorizontal, span, containerWidth, containerHeight,
+                (nfloat)GetItemSpacing(layout), (nfloat)GetLineSpacing(layout));
+        }
+
+        // If any measurements changed, recalculate positions and reposition all visible items
+        if (needsRecalc)
+        {
+            var rect = new Rect(0, 0, PlatformView.Frame.Width, PlatformView.Frame.Height);
+            CalculatePositions(rect);
+            foreach (var kvp in _visibleViews)
+            {
+                PositionItem(kvp.Value.platformView, _flatItems[kvp.Key], kvp.Key,
+                    isHorizontal, span, containerWidth, containerHeight,
+                    itemSpacing, lineSpacing);
+            }
+        }
+    }
+
+    void PositionItem(NSView platformView, ItemInfo info, int index,
+        bool isHorizontal, int span, nfloat containerWidth, nfloat containerHeight,
+        nfloat hSpacing, nfloat vSpacing)
+    {
+        if (span > 1)
+        {
+            if (isHorizontal)
+            {
+                var rowHeight = (containerHeight - vSpacing * (span - 1)) / span;
+                int row = index % span;
+                var y = row * (rowHeight + vSpacing);
+                platformView.Frame = new CGRect(info.Position, y, info.Size, rowHeight);
+            }
+            else
+            {
+                var colWidth = (containerWidth - hSpacing * (span - 1)) / span;
+                int col = index % span;
+                var x = col * (colWidth + hSpacing);
+                platformView.Frame = new CGRect(x, info.Position, colWidth, info.Size);
+            }
+        }
+        else if (isHorizontal)
+        {
+            platformView.Frame = new CGRect(info.Position, 0, info.Size, containerHeight);
+        }
+        else
+        {
+            platformView.Frame = new CGRect(0, info.Position, containerWidth, info.Size);
+        }
+    }
+
+    (IView mauiView, NSView platformView) CreateOrReuseView(int index, ItemInfo info)
+    {
+        var template = info.Template;
+        IView? mauiView = null;
+
+        // Try to reuse from recycle pool
+        if (template != null && _recyclePool.TryGetValue(template, out var pool) && pool.Count > 0)
+        {
+            mauiView = pool.Dequeue();
+            if (mauiView is View v)
+                v.BindingContext = info.DataItem;
+        }
+
+        if (mauiView == null)
+            mauiView = CreateItemView(info.DataItem, info.Template, VirtualView);
+
+        var platformView = mauiView!.ToMacOSPlatform(MauiContext!);
+
+        // Add selection gesture if not a header/footer
+        if (!info.IsGroupHeader && !info.IsGroupFooter)
+            AddSelectionGesture(platformView, info.DataItem, index);
+
+        return (mauiView, platformView);
+    }
+
+    void RecycleView(int index, IView mauiView)
+    {
+        if (index < 0 || index >= _flatItems.Count)
+            return;
+
+        var info = _flatItems[index];
+        if (info.Template == null || info.IsGroupHeader || info.IsGroupFooter)
+            return;
+
+        if (!_recyclePool.TryGetValue(info.Template, out var pool))
+        {
+            pool = new Queue<IView>();
+            _recyclePool[info.Template] = pool;
+        }
+
+        // Keep a reasonable pool size
+        if (pool.Count < 20)
+            pool.Enqueue(mauiView);
+    }
+
+    #endregion
+
+    #region Layout Helpers
 
     static nfloat MeasureItemHeight(NSView subview, nfloat width)
     {
@@ -238,14 +457,18 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
 
     public static void MapItemsLayout(CollectionViewHandler handler, CollectionView view)
     {
-        // Update scroll direction based on layout orientation
         var layout = view.ItemsLayout;
         var isHorizontal = GetOrientation(layout) == ItemsLayoutOrientation.Horizontal;
         handler.PlatformView.HasVerticalScroller = !isHorizontal;
         handler.PlatformView.HasHorizontalScroller = isHorizontal;
+        handler._positionsCalculated = false;
 
         if (handler.PlatformView.Frame.Width > 0)
-            handler.LayoutItems(new Rect(0, 0, handler.PlatformView.Frame.Width, handler.PlatformView.Frame.Height));
+        {
+            var rect = new Rect(0, 0, handler.PlatformView.Frame.Width, handler.PlatformView.Frame.Height);
+            handler.CalculatePositions(rect);
+            handler.UpdateVisibleItems();
+        }
     }
 
     public static void MapSelectionMode(CollectionViewHandler handler, CollectionView view) { }
@@ -279,10 +502,14 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
             return;
 
         UnsubscribeCollection();
-        _itemEntries.Clear();
 
-        foreach (var subview in _itemsContainer.Subviews)
-            subview.RemoveFromSuperview();
+        // Clear all visible views
+        foreach (var kvp in _visibleViews)
+            kvp.Value.platformView.RemoveFromSuperview();
+        _visibleViews.Clear();
+        _recyclePool.Clear();
+        _flatItems.Clear();
+        _positionsCalculated = false;
 
         var itemsSource = VirtualView?.ItemsSource;
         if (itemsSource == null)
@@ -299,60 +526,68 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
         var groupHeaderTemplate = (VirtualView as GroupableItemsView)?.GroupHeaderTemplate;
         var groupFooterTemplate = (VirtualView as GroupableItemsView)?.GroupFooterTemplate;
 
-        int flatIndex = 0;
-
         if (isGrouped)
         {
             foreach (var group in itemsSource)
             {
-                // Group header
                 if (groupHeaderTemplate != null)
-                    AddTemplatedView(group, groupHeaderTemplate, -1);
+                {
+                    _flatItems.Add(new ItemInfo
+                    {
+                        DataItem = group,
+                        Template = groupHeaderTemplate,
+                        IsGroupHeader = true,
+                        Size = _estimatedItemHeight,
+                    });
+                }
 
-                // Group items
                 if (group is IEnumerable groupItems)
                 {
                     foreach (var item in groupItems)
-                        AddItemView(item, template, flatIndex++);
+                    {
+                        var resolvedTemplate = template is DataTemplateSelector sel
+                            ? sel.SelectTemplate(item, VirtualView!) : template;
+                        _flatItems.Add(new ItemInfo
+                        {
+                            DataItem = item,
+                            Template = resolvedTemplate,
+                            Size = _estimatedItemHeight,
+                        });
+                    }
                 }
 
-                // Group footer
                 if (groupFooterTemplate != null)
-                    AddTemplatedView(group, groupFooterTemplate, -1);
+                {
+                    _flatItems.Add(new ItemInfo
+                    {
+                        DataItem = group,
+                        Template = groupFooterTemplate,
+                        IsGroupFooter = true,
+                        Size = _estimatedItemHeight,
+                    });
+                }
             }
         }
         else
         {
             foreach (var item in itemsSource)
-                AddItemView(item, template, flatIndex++);
+            {
+                var resolvedTemplate = template is DataTemplateSelector sel
+                    ? sel.SelectTemplate(item, VirtualView!) : template;
+                _flatItems.Add(new ItemInfo
+                {
+                    DataItem = item,
+                    Template = resolvedTemplate,
+                    Size = _estimatedItemHeight,
+                });
+            }
         }
 
         if (PlatformView.Frame.Width > 0)
-            LayoutItems(new Rect(0, 0, PlatformView.Frame.Width, PlatformView.Frame.Height));
-    }
-
-    void AddItemView(object item, DataTemplate? template, int flatIndex)
-    {
-        var view = CreateItemView(item, template, VirtualView);
-        if (view != null)
         {
-            var platformView = view.ToMacOSPlatform(MauiContext!);
-            _itemsContainer!.AddSubview(platformView);
-            _itemEntries.Add((platformView, item, flatIndex));
-
-            // Add tap gesture for selection
-            AddSelectionGesture(platformView, item, flatIndex);
-        }
-    }
-
-    void AddTemplatedView(object bindingContext, DataTemplate template, int flatIndex)
-    {
-        var content = template.CreateContent();
-        if (content is View view)
-        {
-            view.BindingContext = bindingContext;
-            var platformView = ((IView)view).ToMacOSPlatform(MauiContext!);
-            _itemsContainer!.AddSubview(platformView);
+            var rect = new Rect(0, 0, PlatformView.Frame.Width, PlatformView.Frame.Height);
+            CalculatePositions(rect);
+            UpdateVisibleItems();
         }
     }
 
@@ -378,20 +613,7 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
 
     static IView? CreateItemView(object item, DataTemplate? template, CollectionView? collectionView)
     {
-        if (template is DataTemplateSelector selector && collectionView != null)
-        {
-            var selectedTemplate = selector.SelectTemplate(item, collectionView);
-            if (selectedTemplate != null)
-            {
-                var content = selectedTemplate.CreateContent();
-                if (content is View view)
-                {
-                    view.BindingContext = item;
-                    return view;
-                }
-            }
-        }
-        else if (template != null)
+        if (template != null)
         {
             var content = template.CreateContent();
             if (content is View view)
