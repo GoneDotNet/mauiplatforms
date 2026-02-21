@@ -17,7 +17,7 @@ internal class MacOSModalManager
 	readonly FlippedNSView _contentContainer;
 	readonly List<ModalEntry> _modalStack = new();
 
-	record ModalEntry(Page Page, NSView BackdropView, NSView PageView, IMauiContext MauiContext);
+	record ModalEntry(Page Page, NSView BackdropView, NSView EffectView, NSView PageView, IMauiContext MauiContext);
 
 	public MacOSModalManager(FlippedNSView contentContainer)
 	{
@@ -59,15 +59,25 @@ internal class MacOSModalManager
 			safeRect.Width - inset * 2,
 			safeRect.Height - inset * 2);
 
-		platformView.Frame = pageFrame;
-		platformView.WantsLayer = true;
-		platformView.Layer!.CornerRadius = 10;
-		platformView.Layer.MasksToBounds = true;
-		platformView.Layer.BackgroundColor = NSColor.WindowBackground.CGColor;
-		// Don't auto-resize — we control positioning via LayoutModal
-		_contentContainer.AddSubview(platformView);
+		// Use NSVisualEffectView as the modal background container so it
+		// automatically adapts to light/dark mode appearance changes.
+		var effectView = new NSVisualEffectView(pageFrame)
+		{
+			Material = NSVisualEffectMaterial.WindowBackground,
+			State = NSVisualEffectState.Active,
+			BlendingMode = NSVisualEffectBlendingMode.BehindWindow,
+			WantsLayer = true,
+		};
+		effectView.Layer!.CornerRadius = 10;
+		effectView.Layer.MasksToBounds = true;
 
-		var entry = new ModalEntry(page, backdrop, platformView, mauiContext);
+		platformView.Frame = new CGRect(0, 0, pageFrame.Width, pageFrame.Height);
+		platformView.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable;
+		effectView.AddSubview(platformView);
+
+		_contentContainer.AddSubview(effectView);
+
+		var entry = new ModalEntry(page, backdrop, effectView, platformView, mauiContext);
 		_modalStack.Add(entry);
 
 		// Measure and arrange the page
@@ -89,6 +99,7 @@ internal class MacOSModalManager
 	void RemoveModalViews(ModalEntry entry)
 	{
 		entry.PageView.RemoveFromSuperview();
+		entry.EffectView.RemoveFromSuperview();
 		entry.BackdropView.RemoveFromSuperview();
 		entry.Page.Handler?.DisconnectHandler();
 	}
@@ -112,7 +123,8 @@ internal class MacOSModalManager
 			safeRect.Height - inset * 2);
 
 		entry.BackdropView.Frame = bounds;
-		entry.PageView.Frame = pageFrame;
+		entry.EffectView.Frame = pageFrame;
+		entry.PageView.Frame = new CGRect(0, 0, pageFrame.Width, pageFrame.Height);
 
 		// Trigger layout on the container — don't call page.Arrange directly
 		// because PlatformArrange would reset our frame to (0,0)
