@@ -26,14 +26,25 @@ internal class FlippedNSView : NSView
     public override void SetFrameSize(CGSize newSize)
     {
         base.SetFrameSize(newSize);
+        RelayoutContent();
+    }
 
-        if (newSize.Width <= 0 || newSize.Height <= 0)
+    public override void Layout()
+    {
+        base.Layout();
+        RelayoutContent();
+    }
+
+    void RelayoutContent()
+    {
+        var size = Bounds.Size;
+        if (size.Width <= 0 || size.Height <= 0)
             return;
 
         if (ContentView != null && ContentView.TryGetTarget(out var content))
         {
-            content.Measure((double)newSize.Width, (double)newSize.Height);
-            content.Arrange(new Graphics.Rect(0, 0, (double)newSize.Width, (double)newSize.Height));
+            content.Measure((double)size.Width, (double)size.Height);
+            content.Arrange(new Graphics.Rect(0, 0, (double)size.Width, (double)size.Height));
         }
     }
 
@@ -99,6 +110,7 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         window.Center();
         window.ToolbarStyle = NSWindowToolbarStyle.Unified;
         window.TitleVisibility = NSWindowTitleVisibility.Hidden;
+        window.TitlebarAppearsTransparent = true;
 
         // Use a flipped NSView as ContentView so subviews use top-left origin
         _contentContainer = new FlippedNSView();
