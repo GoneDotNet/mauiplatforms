@@ -16,6 +16,7 @@
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
         <DefineConstants>$(DefineConstants);MACAPP</DefineConstants>
+        <XamMacResourcePrefix>Resources</XamMacResourcePrefix>
     </PropertyGroup>
 
     <ItemGroup>
@@ -131,6 +132,10 @@
 
     <ItemGroup>
         <BundleResource Include="..\Sample\wwwroot\**" Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <BundleResource Include="Resources\AppIcon.icns" />
     </ItemGroup>
 
     <ItemGroup>
