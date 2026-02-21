@@ -116,6 +116,10 @@ public partial class ImageHandler : MacOSViewHandler<IImage, NSImageView>
         {
             LoadFromStream(streamImageSource, imageSourcePart);
         }
+        else if (source is IFontImageSource fontImageSource)
+        {
+            LoadFromFontGlyph(fontImageSource, imageSourcePart);
+        }
         else
         {
             PlatformView.Image = null;
@@ -171,5 +175,12 @@ public partial class ImageHandler : MacOSViewHandler<IImage, NSImageView>
         {
             imageSourcePart.UpdateIsLoading(false);
         }
+    }
+
+    void LoadFromFontGlyph(IFontImageSource fontImageSource, IImageSourcePart imageSourcePart)
+    {
+        var image = FontImageSourceHelper.CreateImage(fontImageSource, MauiContext);
+        PlatformView.Image = image;
+        imageSourcePart.UpdateIsLoading(false);
     }
 }

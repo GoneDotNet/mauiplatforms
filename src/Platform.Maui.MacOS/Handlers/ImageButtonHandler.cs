@@ -59,6 +59,10 @@ public partial class ImageButtonHandler : MacOSViewHandler<IImageButton, NSButto
         {
             _ = LoadImageFromUri(handler, uriSource.Uri);
         }
+        else if (imageButton.Source is IFontImageSource fontSource)
+        {
+            handler.PlatformView.Image = FontImageSourceHelper.CreateImage(fontSource, handler.MauiContext);
+        }
     }
 
     static async Task LoadImageFromUri(ImageButtonHandler handler, Uri uri)

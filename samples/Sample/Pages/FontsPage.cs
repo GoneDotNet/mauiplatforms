@@ -101,6 +101,58 @@ public class FontsPage : ContentPage
 			FontSize = 14,
 		});
 
+		// --- FontImageSource section ---
+		stack.Children.Add(new Label
+		{
+			Text = "FontImageSource (Font Icons)",
+			FontSize = 18,
+			FontAttributes = FontAttributes.Bold,
+			TextColor = Colors.CornflowerBlue,
+			Margin = new Thickness(0, 16, 0, 0),
+		});
+
+		// Unicode glyph from system font
+		stack.Children.Add(new HorizontalStackLayout
+		{
+			Spacing = 12,
+			Children =
+			{
+				new Image
+				{
+					Source = new FontImageSource { Glyph = "★", Color = Colors.Gold, Size = 32 },
+					WidthRequest = 32, HeightRequest = 32,
+				},
+				new Image
+				{
+					Source = new FontImageSource { Glyph = "♥", Color = Colors.Red, Size = 32 },
+					WidthRequest = 32, HeightRequest = 32,
+				},
+				new Image
+				{
+					Source = new FontImageSource { Glyph = "⚡", Color = Colors.Orange, Size = 32 },
+					WidthRequest = 32, HeightRequest = 32,
+				},
+				new Image
+				{
+					Source = new FontImageSource { Glyph = "✓", Color = Colors.Green, Size = 32 },
+					WidthRequest = 32, HeightRequest = 32,
+				},
+				new Image
+				{
+					Source = new FontImageSource { Glyph = "⚙", Color = Colors.Gray, Size = 32 },
+					WidthRequest = 32, HeightRequest = 32,
+				},
+				new Label { Text = "Unicode glyphs", VerticalTextAlignment = TextAlignment.Center },
+			}
+		});
+
+		// FontImageSource on a Button
+		stack.Children.Add(new Button
+		{
+			Text = "Button with Font Icon",
+			ImageSource = new FontImageSource { Glyph = "⬇", Color = Colors.White, Size = 18 },
+		});
+
 		Content = new ScrollView { Content = stack };
 	}
 }
