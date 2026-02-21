@@ -2,6 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Platform.Maui.TvOS.svg?label=Platform.Maui.TvOS)](https://www.nuget.org/packages/Platform.Maui.TvOS/)
 [![NuGet](https://img.shields.io/nuget/v/Platform.Maui.MacOS.svg?label=Platform.Maui.MacOS)](https://www.nuget.org/packages/Platform.Maui.MacOS/)
+[![NuGet](https://img.shields.io/nuget/v/Platform.Maui.MacOS.svg?label=Platform.Maui.MacOS.BlazorWebView)](https://www.nuget.org/packages/Platform.Maui.MacOS.BlazorWebView/)
 [![NuGet](https://img.shields.io/nuget/v/Platform.Maui.Essentials.TvOS.svg?label=Platform.Maui.Essentials.TvOS)](https://www.nuget.org/packages/Platform.Maui.Essentials.TvOS/)
 [![NuGet](https://img.shields.io/nuget/v/Platform.Maui.Essentials.MacOS.svg?label=Platform.Maui.Essentials.MacOS)](https://www.nuget.org/packages/Platform.Maui.Essentials.MacOS/)
 
@@ -11,9 +12,8 @@ Both backends use the platform-agnostic MAUI NuGet packages (`net10.0` fallback 
 
 > **Inspiration:** The Xamarin.Forms project previously had a macOS AppKit backend ([Xamarin.Forms.Platform.MacOS](https://github.com/xamarin/Xamarin.Forms/tree/5.0.0/Xamarin.Forms.ControlGallery.MacOS)). While this project uses MAUI's handler architecture rather than the legacy renderer approach, some of that codebase is useful as a reference for mapping AppKit native controls.
 
-## Samples
+https://github.com/user-attachments/assets/035de5fa-bda6-49d1-98f6-41cd4d6ff559
 
-Videos are attached in the repo.
 
 ## Quick Start — Setting Up a macOS MAUI App
 
