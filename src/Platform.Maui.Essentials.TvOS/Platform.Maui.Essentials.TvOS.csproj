@@ -4,6 +4,7 @@
         <TargetFramework>$(BaseTargetFramework)-tvos</TargetFramework>
         <RootNamespace>Microsoft.Maui.Essentials.TvOS</RootNamespace>
         <SupportedOSPlatformVersion>16.0</SupportedOSPlatformVersion>
+        <PackageVersion>$(TvOSPackageVersion)</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>

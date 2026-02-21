@@ -4,6 +4,7 @@
         <TargetFramework>$(BaseTargetFramework)-macos</TargetFramework>
         <RootNamespace>Microsoft.Maui.Platform.MacOS</RootNamespace>
         <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+        <PackageVersion>$(MacOSPackageVersion)</PackageVersion>
         <PackageId>Platform.Maui.MacOS.BlazorWebView</PackageId>
         <Description>Blazor Hybrid support for Platform.Maui.MacOS — host Blazor components in a native macOS AppKit window using WKWebView.</Description>
         <PackageTags>maui;macos;blazor;webview;appkit;webkit;hybrid</PackageTags>
