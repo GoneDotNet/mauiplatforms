@@ -541,6 +541,15 @@ public partial class ShellHandler : ViewHandler<Shell, NSView>
 
 	void ShowCurrentPage()
 	{
+		// Must run on main thread — AppKit view creation/manipulation
+		// crashes with SIGSEGV when called from background threads
+		// (e.g., when Shell.GoToAsync is called from a non-UI thread).
+		if (!NSThread.IsMain)
+		{
+			NSApplication.SharedApplication.InvokeOnMainThread(ShowCurrentPage);
+			return;
+		}
+
 		if (_contentView == null || _shell == null || MauiContext == null)
 			return;
 

@@ -1,4 +1,5 @@
 using AppKit;
+using Foundation;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Handlers;
 
@@ -39,8 +40,17 @@ public partial class ShellSectionHandler : ElementHandler<ShellSection, NSView>
 	{
 		if (arg is NavigationRequest request)
 		{
-			// Complete the navigation — the main ShellHandler handles rendering
-			((IStackNavigation)view).NavigationFinished(request.NavigationStack);
+			// Dispatch to main thread — GoToAsync may be called from background threads
+			// and NavigationFinished triggers view creation in the Shell pipeline.
+			if (!NSThread.IsMain)
+			{
+				NSApplication.SharedApplication.InvokeOnMainThread(() =>
+					((IStackNavigation)view).NavigationFinished(request.NavigationStack));
+			}
+			else
+			{
+				((IStackNavigation)view).NavigationFinished(request.NavigationStack);
+			}
 		}
 	}
 }
