@@ -4,6 +4,7 @@
         <TargetFramework>$(BaseTargetFramework)-macos</TargetFramework>
         <RootNamespace>Microsoft.Maui.Platform.MacOS</RootNamespace>
         <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+        <PackageVersion>$(MacOSPackageVersion)</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
