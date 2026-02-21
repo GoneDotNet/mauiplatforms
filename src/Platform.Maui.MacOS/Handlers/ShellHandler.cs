@@ -586,17 +586,25 @@ public partial class ShellHandler : ViewHandler<Shell, NSView>
 		if (page != null)
 		{
 			_currentPage = page;
-			var platformView = ((IView)page).ToMacOSPlatform(MauiContext);
-			platformView.Frame = _contentView.Bounds;
-			_contentView.AddSubview(platformView);
-			_currentPageView = platformView;
-
-			// Measure and arrange
-			var bounds = _contentView.Bounds;
-			if (bounds.Width > 0 && bounds.Height > 0)
+			try
 			{
-				page.Measure((double)bounds.Width, (double)bounds.Height);
-				page.Arrange(new Rect(0, 0, (double)bounds.Width, (double)bounds.Height));
+				var platformView = ((IView)page).ToMacOSPlatform(MauiContext);
+				platformView.Frame = _contentView.Bounds;
+				_contentView.AddSubview(platformView);
+				_currentPageView = platformView;
+
+				// Measure and arrange
+				var bounds = _contentView.Bounds;
+				if (bounds.Width > 0 && bounds.Height > 0)
+				{
+					page.Measure((double)bounds.Width, (double)bounds.Height);
+					page.Arrange(new Rect(0, 0, (double)bounds.Width, (double)bounds.Height));
+				}
+			}
+			catch (Exception)
+			{
+				// Page creation may fail if handler setup throws;
+				// don't let it crash the app via unhandled dispatch exception
 			}
 		}
 

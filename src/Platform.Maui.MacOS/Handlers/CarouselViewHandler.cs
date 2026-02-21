@@ -83,7 +83,7 @@ public partial class CarouselViewHandler : MacOSViewHandler<CarouselView, NSScro
 
 	void OnScrollBoundsChanged(Foundation.NSNotification notification)
 	{
-		if (_isScrolling || _itemsContainer == null)
+		if (_isScrolling || _itemsContainer == null || VirtualView == null || _itemCount == 0)
 			return;
 
 		// Debounce: snap after scroll settles
@@ -93,7 +93,11 @@ public partial class CarouselViewHandler : MacOSViewHandler<CarouselView, NSScro
 			() =>
 			{
 				_isScrolling = false;
-				SnapToNearestPage();
+				if (VirtualView != null && PlatformView != null && _itemCount > 0)
+				{
+					try { SnapToNearestPage(); }
+					catch { /* handler may have been disconnected */ }
+				}
 			});
 	}
 
@@ -126,6 +130,7 @@ public partial class CarouselViewHandler : MacOSViewHandler<CarouselView, NSScro
 
 		var pageWidth = PlatformView.Frame.Width;
 		var targetX = position * pageWidth;
+		var scrollView = PlatformView;
 
 		if (animated)
 		{
@@ -133,8 +138,12 @@ public partial class CarouselViewHandler : MacOSViewHandler<CarouselView, NSScro
 			{
 				ctx.Duration = 0.3;
 				ctx.AllowsImplicitAnimation = true;
-				PlatformView.ContentView.ScrollToPoint(new CGPoint(targetX, 0));
-			}, () => PlatformView.ReflectScrolledClipView(PlatformView.ContentView));
+				scrollView.ContentView.ScrollToPoint(new CGPoint(targetX, 0));
+			}, () =>
+			{
+				try { scrollView.ReflectScrolledClipView(scrollView.ContentView); }
+				catch { /* view may have been disconnected */ }
+			});
 		}
 		else
 		{
