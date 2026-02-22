@@ -100,6 +100,17 @@ internal class MacOSWindowDelegate : NSWindowDelegate
             return;
 
         handler.OnWindowClosed();
+
+        // Re-activate the next visible window so it regains key status
+        var closedWindow = notification.Object as NSWindow;
+        foreach (var w in NSApplication.SharedApplication.Windows)
+        {
+            if (w != closedWindow && w.IsVisible)
+            {
+                w.MakeKeyAndOrderFront(null);
+                break;
+            }
+        }
     }
 }
 
@@ -158,6 +169,7 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
             false);
 
         window.Center();
+        window.ReleasedWhenClosed = false;
 
         // Cascade additional windows so they don't stack on top of each other
         if (_windowCascadeOffset > 0)

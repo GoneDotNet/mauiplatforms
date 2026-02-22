@@ -37,7 +37,13 @@ public partial class ApplicationHandler : ElementHandler<IApplication, NSObject>
         if (appContext == null)
             return;
 
-        macApp.CreatePlatformWindow(appContext, args as OpenWindowRequest);
+        // Defer window creation to the next run loop iteration so the current
+        // UI event (e.g. button click) completes before focus is stolen by the new window.
+        var request = args as OpenWindowRequest;
+        CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() =>
+        {
+            macApp.CreatePlatformWindow(appContext, request);
+        });
     }
 
     public static void MapCloseWindow(ApplicationHandler handler, IApplication application, object? args)
