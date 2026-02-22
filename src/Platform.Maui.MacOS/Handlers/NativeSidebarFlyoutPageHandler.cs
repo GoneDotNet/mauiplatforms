@@ -271,6 +271,12 @@ public partial class NativeSidebarFlyoutPageHandler : MacOSViewHandler<IFlyoutVi
 
 	double _flyoutWidth = 220;
 
+	/// <summary>
+	/// True when the handler is updating the selection programmatically.
+	/// Used to prevent re-entrant calls between the attached property and the handler.
+	/// </summary>
+	internal bool IsProgrammaticSelection { get; private set; }
+
 	FlyoutPage? FlyoutPage => VirtualView as FlyoutPage;
 
 	public NativeSidebarFlyoutPageHandler() : base(Mapper) { }
@@ -420,6 +426,73 @@ public partial class NativeSidebarFlyoutPageHandler : MacOSViewHandler<IFlyoutVi
 		}
 	}
 
+	/// <summary>
+	/// Programmatically selects a sidebar item in the NSOutlineView.
+	/// </summary>
+	/// <param name="item">The sidebar item to select.</param>
+	/// <param name="suppressCallback">When true, the SidebarSelectionChanged callback is not fired.</param>
+	public void SelectItem(MacOSSidebarItem item, bool suppressCallback = false)
+	{
+		if (_outlineView == null || _dataSource == null)
+			return;
+
+		var wrapper = _dataSource.GetWrapper(item);
+		var row = _outlineView.RowForItem(wrapper);
+		if (row < 0)
+			return;
+
+		if (suppressCallback)
+			IsProgrammaticSelection = true;
+
+		try
+		{
+			_outlineView.SelectRow(row, false);
+		}
+		finally
+		{
+			IsProgrammaticSelection = false;
+		}
+	}
+
+	/// <summary>
+	/// Selects the first sidebar item matching the given predicate.
+	/// </summary>
+	/// <param name="predicate">A function to test each item.</param>
+	/// <param name="suppressCallback">When true, the SidebarSelectionChanged callback is not fired.</param>
+	/// <returns>The matched item, or null if not found.</returns>
+	public MacOSSidebarItem? SelectItem(Func<MacOSSidebarItem, bool> predicate, bool suppressCallback = false)
+	{
+		if (FlyoutPage == null)
+			return null;
+
+		var items = MacOSFlyoutPage.GetSidebarItems(FlyoutPage);
+		if (items == null)
+			return null;
+
+		var match = FindItem(items, predicate);
+		if (match != null)
+			SelectItem(match, suppressCallback);
+
+		return match;
+	}
+
+	static MacOSSidebarItem? FindItem(IList<MacOSSidebarItem> items, Func<MacOSSidebarItem, bool> predicate)
+	{
+		foreach (var item in items)
+		{
+			if (!item.IsGroup && predicate(item))
+				return item;
+
+			if (item.Children != null)
+			{
+				var found = FindItem(item.Children, predicate);
+				if (found != null)
+					return found;
+			}
+		}
+		return null;
+	}
+
 	void ReloadSidebar()
 	{
 		if (_outlineView == null || FlyoutPage == null)
@@ -451,8 +524,26 @@ public partial class NativeSidebarFlyoutPageHandler : MacOSViewHandler<IFlyoutVi
 		if (FlyoutPage == null)
 			return;
 
-		var callback = MacOSFlyoutPage.GetSidebarSelectionChanged(FlyoutPage);
-		callback?.Invoke(item);
+		// When the handler is doing a programmatic selection (suppressCallback),
+		// only update the attached property, skip the user callback.
+		var wasProgrammatic = IsProgrammaticSelection;
+
+		// Update the SelectedItem attached property (without re-triggering SelectItem)
+		IsProgrammaticSelection = true;
+		try
+		{
+			MacOSFlyoutPage.SetSelectedItem(FlyoutPage, item);
+		}
+		finally
+		{
+			IsProgrammaticSelection = wasProgrammatic;
+		}
+
+		if (!wasProgrammatic)
+		{
+			var callback = MacOSFlyoutPage.GetSidebarSelectionChanged(FlyoutPage);
+			callback?.Invoke(item);
+		}
 	}
 
 	void ShowDetail(NSView view)
