@@ -39,4 +39,65 @@ public static class MacOSFlyoutPage
 
 	public static void SetSidebarSelectionChanged(BindableObject obj, Action<MacOSSidebarItem>? value)
 		=> obj.SetValue(SidebarSelectionChangedProperty, value);
+
+	/// <summary>
+	/// Gets or sets the currently selected sidebar item. Setting this programmatically
+	/// updates the NSOutlineView selection without firing the SidebarSelectionChanged callback.
+	/// </summary>
+	public static readonly BindableProperty SelectedItemProperty =
+		BindableProperty.CreateAttached(
+			"SelectedItem",
+			typeof(MacOSSidebarItem),
+			typeof(MacOSFlyoutPage),
+			null,
+			propertyChanged: OnSelectedItemChanged);
+
+	public static MacOSSidebarItem? GetSelectedItem(BindableObject obj)
+		=> (MacOSSidebarItem?)obj.GetValue(SelectedItemProperty);
+
+	public static void SetSelectedItem(BindableObject obj, MacOSSidebarItem? value)
+		=> obj.SetValue(SelectedItemProperty, value);
+
+	static void OnSelectedItemChanged(BindableObject bindable, object? oldValue, object? newValue)
+	{
+		if (bindable is not FlyoutPage flyoutPage || newValue is not MacOSSidebarItem item)
+			return;
+
+		if (flyoutPage.Handler is Handlers.NativeSidebarFlyoutPageHandler handler && !handler.IsProgrammaticSelection)
+			handler.SelectItem(item, suppressCallback: true);
+	}
+
+	/// <summary>
+	/// Selects a sidebar item matching the given predicate. The SidebarSelectionChanged
+	/// callback is suppressed. Returns the matched item, or null if not found.
+	/// </summary>
+	public static MacOSSidebarItem? SelectSidebarItem(BindableObject obj, Func<MacOSSidebarItem, bool> predicate)
+	{
+		var items = GetSidebarItems(obj);
+		if (items == null)
+			return null;
+
+		var match = FindItem(items, predicate);
+		if (match != null)
+			SetSelectedItem(obj, match);
+
+		return match;
+	}
+
+	static MacOSSidebarItem? FindItem(IList<MacOSSidebarItem> items, Func<MacOSSidebarItem, bool> predicate)
+	{
+		foreach (var item in items)
+		{
+			if (!item.IsGroup && predicate(item))
+				return item;
+
+			if (item.Children != null)
+			{
+				var found = FindItem(item.Children, predicate);
+				if (found != null)
+					return found;
+			}
+		}
+		return null;
+	}
 }
