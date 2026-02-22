@@ -99,18 +99,8 @@ internal class MacOSWindowDelegate : NSWindowDelegate
         if (!_handlerRef.TryGetTarget(out var handler))
             return;
 
-        handler.OnWindowClosed();
-
-        // Re-activate the next visible window so it regains key status
         var closedWindow = notification.Object as NSWindow;
-        foreach (var w in NSApplication.SharedApplication.Windows)
-        {
-            if (w != closedWindow && w.IsVisible)
-            {
-                w.MakeKeyAndOrderFront(null);
-                break;
-            }
-        }
+        handler.OnWindowClosed(closedWindow);
     }
 }
 
@@ -145,14 +135,26 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
     /// Called by MacOSWindowDelegate when the NSWindow is closed (red button or programmatically).
     /// Fires IWindow.Destroying() and removes the window from the tracked list.
     /// </summary>
-    internal void OnWindowClosed()
+    internal void OnWindowClosed(NSWindow? closedNsWindow)
     {
         if (VirtualView is IWindow window)
         {
             window.Destroying();
 
             if (IPlatformApplication.Current is MacOSMauiApplication macApp)
+            {
                 macApp.RemoveWindow(window);
+
+                // Re-activate the next remaining window so it regains key status
+                foreach (var w in macApp.Windows)
+                {
+                    if (w.Handler?.PlatformView is NSWindow nsWin && nsWin != closedNsWindow && nsWin.IsVisible)
+                    {
+                        nsWin.MakeKeyAndOrderFront(null);
+                        break;
+                    }
+                }
+            }
         }
 
         UnsubscribeModalEvents();
