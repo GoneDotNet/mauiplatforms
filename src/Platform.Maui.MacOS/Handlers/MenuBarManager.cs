@@ -97,13 +97,14 @@ public static class MenuBarManager
     static NSMenuItem CreateMenuItem(MenuFlyoutItem flyoutItem)
     {
         var keyEquivalent = flyoutItem.KeyboardAccelerators?.FirstOrDefault();
+        var wrapper = new MenuItemCommandWrapper(flyoutItem);
         var nsItem = new NSMenuItem(
             flyoutItem.Text ?? string.Empty,
             new ObjCRuntime.Selector("menuItemClicked:"),
             keyEquivalent != null ? GetKeyEquivalent(keyEquivalent) : string.Empty);
 
-        nsItem.Enabled = flyoutItem.IsEnabled;
-        nsItem.RepresentedObject = new MenuItemCommandWrapper(flyoutItem);
+        nsItem.Target = wrapper;
+        nsItem.RepresentedObject = wrapper;
 
         if (keyEquivalent != null)
             nsItem.KeyEquivalentModifierMask = GetModifierMask(keyEquivalent);
