@@ -22,7 +22,8 @@ class MultiWindowPage : ContentPage
 		openBtn.Clicked += (s, e) =>
 		{
 			Application.Current?.OpenWindow(new Window(new SecondaryWindowPage()));
-			UpdateWindowCount();
+			// Window creation is deferred; update count on next tick
+			Dispatcher.Dispatch(UpdateWindowCount);
 		};
 
 		var closeBtn = new Button { Text = "Close This Window" };
@@ -57,7 +58,20 @@ class MultiWindowPage : ContentPage
 	{
 		base.OnAppearing();
 		UpdateWindowCount();
+
+		// Update count when this window regains focus (e.g. after closing another window)
+		if (Window != null)
+			Window.Activated += OnWindowActivated;
 	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		if (Window != null)
+			Window.Activated -= OnWindowActivated;
+	}
+
+	void OnWindowActivated(object? sender, EventArgs e) => UpdateWindowCount();
 
 	void UpdateWindowCount()
 	{
