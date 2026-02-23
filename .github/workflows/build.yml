@@ -45,6 +45,9 @@ jobs:
     - name: Build
       run: dotnet build build.slnf -m -property:Configuration=Release
 
+    - name: Build Sample App
+      run: dotnet publish samples/SampleMac/SampleMac.csproj -c Release -o publish
+
     - name: Test
       run: dotnet test build.slnf --no-build -property:Configuration=Release --logger "console;verbosity=normal" || true
 
@@ -54,6 +57,12 @@ jobs:
       with:
         name: nuget-artifacts
         path: '**/*.nupkg'
+
+    - name: Post Sample App
+      uses: actions/upload-artifact@v4
+      with:
+        name: SampleMac
+        path: 'publish/*.app'
 
     - name: Publish NuGets
       if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/v'))
