@@ -134,6 +134,9 @@
         <Compile Include="..\Sample\Pages\MultiWindowPage.cs">
             <Link>Pages\MultiWindowPage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\Pages\ThemePage.cs">
+            <Link>Pages\ThemePage.cs</Link>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>

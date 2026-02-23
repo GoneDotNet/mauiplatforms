@@ -61,16 +61,8 @@ internal class FlippedNSView : NSView
         if (Application.Current is null)
             return;
 
-        var best = appearance.FindBestMatch(new string[]
-        {
-            NSAppearance.NameAqua.ToString(),
-            NSAppearance.NameDarkAqua.ToString()
-        });
-
-        Application.Current.UserAppTheme = best == NSAppearance.NameDarkAqua.ToString()
-            ? AppTheme.Dark
-            : AppTheme.Light;
-
+        // Only call ThemeChanged() which updates PlatformAppTheme via AppInfo.RequestedTheme.
+        // Do NOT set UserAppTheme — that's for programmatic overrides by the developer.
         (Application.Current as IApplication)?.ThemeChanged();
     }
 }

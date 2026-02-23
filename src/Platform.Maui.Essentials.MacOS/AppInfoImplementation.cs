@@ -24,16 +24,12 @@ class AppInfoImplementation : IAppInfo
     {
         get
         {
-            var app = NSAppearance.CurrentDrawingAppearance?.FindBestMatch(new string[]
-            {
-                NSAppearance.NameAqua,
-                NSAppearance.NameDarkAqua
-            });
-
-            if (string.IsNullOrEmpty(app))
-                return AppTheme.Unspecified;
-
-            return app == NSAppearance.NameDarkAqua ? AppTheme.Dark : AppTheme.Light;
+            // Read the system theme from UserDefaults, independent of any
+            // app-level NSApplication.Appearance override.
+            var style = Foundation.NSUserDefaults.StandardUserDefaults.StringForKey("AppleInterfaceStyle");
+            return string.Equals(style, "Dark", StringComparison.OrdinalIgnoreCase)
+                ? AppTheme.Dark
+                : AppTheme.Light;
         }
     }
 
