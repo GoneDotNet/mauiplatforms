@@ -117,9 +117,24 @@ public static class MacOSToolbarItem
 	public static bool GetIsVisible(BindableObject obj) => (bool)obj.GetValue(IsVisibleProperty);
 	public static void SetIsVisible(BindableObject obj, bool value) => obj.SetValue(IsVisibleProperty, value);
 
+	/// <summary>
+	/// Maps special toolbar items (menu, search, group, etc.) back to their owning Page
+	/// so that <see cref="OnIsVisibleChanged"/> can trigger a refresh when visibility changes.
+	/// </summary>
+	static readonly System.Runtime.CompilerServices.ConditionalWeakTable<BindableObject, WeakReference<Page>> _ownerPages = new();
+
+	internal static void SetOwnerPage(BindableObject item, Page page)
+		=> _ownerPages.AddOrUpdate(item, new WeakReference<Page>(page));
+
 	static void OnIsVisibleChanged(BindableObject bindable, object? oldValue, object? newValue)
 	{
-		if (bindable is ToolbarItem ti && ti.Parent is Page page)
+		Page? page = null;
+		if (bindable is ToolbarItem ti)
+			page = ti.Parent as Page;
+		else if (_ownerPages.TryGetValue(bindable, out var weakRef))
+			weakRef.TryGetTarget(out page);
+
+		if (page != null)
 			MacOSToolbar.RequestRefresh(page);
 	}
 }

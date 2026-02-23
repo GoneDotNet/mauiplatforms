@@ -235,6 +235,17 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         var viewItems = _currentPage != null ? MacOSToolbar.GetViewItems(_currentPage) : null;
         if (viewItems != null) _viewItems.AddRange(viewItems);
 
+        // Register owner page on special items so IsVisible changes can trigger refresh
+        if (_currentPage != null)
+        {
+            if (_searchItem != null) MacOSToolbarItem.SetOwnerPage(_searchItem, _currentPage);
+            if (_shareItem != null) MacOSToolbarItem.SetOwnerPage(_shareItem, _currentPage);
+            foreach (var m in _menuItems) MacOSToolbarItem.SetOwnerPage(m, _currentPage);
+            foreach (var g in _groupItems) MacOSToolbarItem.SetOwnerPage(g, _currentPage);
+            foreach (var p in _popUpItems) MacOSToolbarItem.SetOwnerPage(p, _currentPage);
+            foreach (var v in _viewItems) MacOSToolbarItem.SetOwnerPage(v, _currentPage);
+        }
+
         // Check for explicit layouts on the current page
         var explicitSidebarLayout = _currentPage != null
             ? MacOSToolbar.GetSidebarLayout(_currentPage) : null;
@@ -647,8 +658,9 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     }
 
     /// <summary>
-    /// Updates <c>NSToolbarItem.IsHidden</c> on all native content and sidebar
-    /// toolbar items to match <see cref="MacOSToolbarItem.IsVisibleProperty"/>.
+    /// Updates <c>NSToolbarItem.Hidden</c> on all native toolbar items to match
+    /// <see cref="MacOSToolbarItem.IsVisibleProperty"/>. Covers regular items,
+    /// sidebar items, menu items, search items, groups, share, popups, and views.
     /// </summary>
     void SyncItemVisibility()
     {
@@ -656,23 +668,56 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
 
         foreach (var nsItem in _toolbar.Items)
         {
-            ToolbarItem? mauiItem = null;
+            BindableObject? source = null;
+            var id = nsItem.Identifier;
 
-            if (nsItem.Identifier.StartsWith(ItemIdPrefix))
+            if (id.StartsWith(ItemIdPrefix))
             {
-                if (int.TryParse(nsItem.Identifier.AsSpan(ItemIdPrefix.Length), out int idx)
+                if (int.TryParse(id.AsSpan(ItemIdPrefix.Length), out int idx)
                     && idx >= 0 && idx < _items.Count)
-                    mauiItem = _items[idx];
+                    source = _items[idx];
             }
-            else if (nsItem.Identifier.StartsWith(SidebarItemIdPrefix))
+            else if (id.StartsWith(SidebarItemIdPrefix))
             {
-                if (int.TryParse(nsItem.Identifier.AsSpan(SidebarItemIdPrefix.Length), out int idx)
+                if (int.TryParse(id.AsSpan(SidebarItemIdPrefix.Length), out int idx)
                     && idx >= 0 && idx < _sidebarItems.Count)
-                    mauiItem = _sidebarItems[idx];
+                    source = _sidebarItems[idx];
+            }
+            else if (id.StartsWith(MenuIdPrefix))
+            {
+                if (int.TryParse(id.AsSpan(MenuIdPrefix.Length), out int idx)
+                    && idx >= 0 && idx < _menuItems.Count)
+                    source = _menuItems[idx];
+            }
+            else if (id.StartsWith(GroupIdPrefix))
+            {
+                if (int.TryParse(id.AsSpan(GroupIdPrefix.Length), out int idx)
+                    && idx >= 0 && idx < _groupItems.Count)
+                    source = _groupItems[idx];
+            }
+            else if (id.StartsWith(PopUpIdPrefix))
+            {
+                if (int.TryParse(id.AsSpan(PopUpIdPrefix.Length), out int idx)
+                    && idx >= 0 && idx < _popUpItems.Count)
+                    source = _popUpItems[idx];
+            }
+            else if (id.StartsWith(ViewIdPrefix))
+            {
+                if (int.TryParse(id.AsSpan(ViewIdPrefix.Length), out int idx)
+                    && idx >= 0 && idx < _viewItems.Count)
+                    source = _viewItems[idx];
+            }
+            else if (id == SearchId && _searchItem != null)
+            {
+                source = _searchItem;
+            }
+            else if (id == ShareId && _shareItem != null)
+            {
+                source = _shareItem;
             }
 
-            if (mauiItem != null)
-                nsItem.Hidden = !MacOSToolbarItem.GetIsVisible(mauiItem);
+            if (source != null)
+                nsItem.Hidden = !MacOSToolbarItem.GetIsVisible(source);
         }
     }
 
