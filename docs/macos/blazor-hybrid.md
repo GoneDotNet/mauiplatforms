@@ -92,7 +92,7 @@ shell.Items.Add(new ShellContent
 
 ## Debugging with MauiDevFlow
 
-If you have [MauiDevFlow](https://github.com/nicwise/Redth.MauiDevFlow.CLI) set up, you can inspect Blazor WebView content via CDP:
+If you have [MauiDevFlow](https://github.com/Redth/MauiDevFlow) set up, you can inspect Blazor WebView content via CDP:
 
 ```bash
 maui-devflow cdp snapshot           # View DOM as accessible text
