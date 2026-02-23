@@ -131,3 +131,27 @@ blazorView.ContentInsets = new Thickness(0, 38, 0, 0); // Adjust for compact too
 - Scroll indicators honor the insets — they won't appear behind obscuring UI
 
 > **Note:** On current macOS versions, only the **top** inset is reliably supported. Left, bottom, and right insets will take effect when `ObscuredContentInsets` becomes available in a future macOS SDK.
+
+## Titlebar Drag (FullSizeContentView)
+
+When `FullSizeContentView` is enabled (the default), the `WKWebView` extends behind the toolbar and can intercept mouse events in the titlebar area, making the window undraggable from the content region.
+
+The `BlazorWebViewHandler` automatically installs a transparent drag overlay that:
+
+- Captures mouse events in the titlebar zone and initiates `Window.PerformWindowDrag()`
+- Supports double-click to zoom the window
+- Passes all other mouse events through to the WKWebView below
+
+This happens automatically — no configuration needed. If you disable `FullSizeContentView`, the overlay is not installed.
+
+## Transparent Background
+
+To let the native window background show through the WebView, set the HTML body background to `transparent`:
+
+```css
+body {
+    background-color: transparent;
+}
+```
+
+The handler automatically sets `drawsBackground = false` on the underlying `WKWebView`, so transparent CSS backgrounds work out of the box.
