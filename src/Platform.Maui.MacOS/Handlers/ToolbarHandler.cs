@@ -27,6 +27,7 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     const string GroupIdPrefix = "MauiGroup_";
     const string ShareId = "MauiShareItem";
     const string PopUpIdPrefix = "MauiPopUp_";
+    const string ViewIdPrefix = "MauiView_";
     const nint SidebarItemTagOffset = 100000;
     static int _toolbarCounter;
 
@@ -59,6 +60,7 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     readonly List<MacOSToolbarItemGroup> _groupItems = new();
     MacOSShareToolbarItem? _shareItem;
     readonly List<MacOSPopUpToolbarItem> _popUpItems = new();
+    readonly List<MacOSViewToolbarItem> _viewItems = new();
     bool _isRefreshing;
 
     public void AttachToWindow(NSWindow window)
@@ -229,6 +231,9 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         if (groupItems != null) _groupItems.AddRange(groupItems);
         var popUpItems = _currentPage != null ? MacOSToolbar.GetPopUpItems(_currentPage) : null;
         if (popUpItems != null) _popUpItems.AddRange(popUpItems);
+        _viewItems.Clear();
+        var viewItems = _currentPage != null ? MacOSToolbar.GetViewItems(_currentPage) : null;
+        if (viewItems != null) _viewItems.AddRange(viewItems);
 
         // Check for explicit layouts on the current page
         var explicitSidebarLayout = _currentPage != null
@@ -308,7 +313,8 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         }
 
         bool hasSpecialItems = _searchItem != null || _menuItems.Count > 0
-            || _groupItems.Count > 0 || _shareItem != null || _popUpItems.Count > 0;
+            || _groupItems.Count > 0 || _shareItem != null || _popUpItems.Count > 0
+            || _viewItems.Count > 0;
         bool hasContentItems = contentItems.Count > 0 || hasExplicitContentLayout || hasSpecialItems;
         bool hasSidebarItems = hasExplicitSidebarLayout
             || sidebarLeading.Count > 0 || sidebarCenter.Count > 0 || sidebarTrailing.Count > 0;
@@ -565,6 +571,9 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             for (int pi = 0; pi < _popUpItems.Count; pi++)
                 if (_popUpItems[pi].Placement == MacOSToolbarItemPlacement.Content)
                     _itemIdentifiers.Add($"{PopUpIdPrefix}{pi}");
+            for (int vi = 0; vi < _viewItems.Count; vi++)
+                if (_viewItems[vi].Placement == MacOSToolbarItemPlacement.Content)
+                    _itemIdentifiers.Add($"{ViewIdPrefix}{vi}");
         }
 
 
@@ -726,6 +735,14 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             var indexStr = itemIdentifier.Substring(PopUpIdPrefix.Length);
             if (int.TryParse(indexStr, out int pIdx) && pIdx >= 0 && pIdx < _popUpItems.Count)
                 return CreatePopUpToolbarItem(itemIdentifier, _popUpItems[pIdx]);
+        }
+
+        // Custom view toolbar items
+        if (itemIdentifier.StartsWith(ViewIdPrefix))
+        {
+            var indexStr = itemIdentifier.Substring(ViewIdPrefix.Length);
+            if (int.TryParse(indexStr, out int vIdx) && vIdx >= 0 && vIdx < _viewItems.Count)
+                return CreateViewToolbarItem(itemIdentifier, _viewItems[vIdx]);
         }
 
         if (itemIdentifier.StartsWith(SidebarItemIdPrefix))
@@ -982,37 +999,13 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         if (!string.IsNullOrEmpty(menuItem.Icon))
             image = NSImage.GetSystemSymbol(menuItem.Icon, null);
 
-        if (menuItem.ShowsTitle && image != null && !string.IsNullOrEmpty(menuItem.Text))
-        {
-            // Show icon + text side-by-side in the toolbar button
-            var stack = new NSStackView
-            {
-                Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
-                Spacing = 4,
-                Alignment = NSLayoutAttribute.CenterY,
-                Distribution = NSStackViewDistribution.Fill,
-                EdgeInsets = new NSEdgeInsets(4, 8, 4, 8),
-            };
-            var imageView = new NSImageView { Image = image };
-            imageView.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
-            var label = new NSTextField
-            {
-                StringValue = menuItem.Text,
-                Editable = false,
-                Bordered = false,
-                DrawsBackground = false,
-                Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize),
-                TextColor = NSColor.Label,
-            };
-            label.SetContentHuggingPriorityForOrientation(250, NSLayoutConstraintOrientation.Horizontal);
-            stack.AddArrangedSubview(imageView);
-            stack.AddArrangedSubview(label);
-            nsMenuItem.View = stack;
-        }
-        else if (image != null)
-        {
+        if (image != null)
             nsMenuItem.Image = image;
-        }
+
+        // ShowsTitle: set the title directly on the toolbar item — modern macOS
+        // renders icon + title together with native hover/click states when Bordered.
+        if (menuItem.ShowsTitle && !string.IsNullOrEmpty(menuItem.Text))
+            nsMenuItem.Title = menuItem.Text;
 
         nsMenuItem.Menu = BuildNSMenu(menuItem.Items);
         return nsMenuItem;
@@ -1185,6 +1178,98 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         };
 
         nsItem.View = button;
+        return nsItem;
+    }
+
+    // ── Custom View Toolbar Item ───────────────────────────────────────
+
+    NSToolbarItem CreateViewToolbarItem(string identifier, MacOSViewToolbarItem viewItem)
+    {
+        var nsItem = new NSToolbarItem(identifier)
+        {
+            Label = viewItem.Label ?? string.Empty,
+            PaletteLabel = viewItem.Label ?? string.Empty,
+        };
+
+        if (viewItem.View == null)
+            return nsItem;
+
+        // Get the MAUI handler's platform view
+        var mauiView = viewItem.View;
+
+        // Ensure the view has a handler by setting its parent to the current page
+        if (mauiView.Handler == null && _currentPage?.Handler?.MauiContext is IMauiContext mauiContext)
+        {
+            mauiView.Parent = _currentPage;
+            var handler = mauiView.ToHandler(mauiContext);
+        }
+
+        if (mauiView.Handler?.PlatformView is NSView platformView)
+        {
+            // Measure the MAUI view to get its desired size
+            nfloat toolbarHeight = 28;
+            var measured = mauiView.Measure(
+                viewItem.MaxWidth > 0 ? viewItem.MaxWidth : 400,
+                toolbarHeight);
+            var desiredWidth = (nfloat)Math.Ceiling(measured.Width);
+            var desiredHeight = toolbarHeight;
+
+            // Fallback: if MAUI measure returns 0, ask the native view
+            if (desiredWidth <= 0)
+            {
+                var fittingSize = platformView.FittingSize;
+                if (fittingSize.Width > 0)
+                    desiredWidth = (nfloat)Math.Ceiling(fittingSize.Width);
+                else
+                    desiredWidth = 150; // reasonable fallback
+            }
+
+            // Apply min/max bounds
+            if (viewItem.MinWidth > 0 && desiredWidth < viewItem.MinWidth)
+                desiredWidth = (nfloat)viewItem.MinWidth;
+            if (viewItem.MaxWidth > 0 && desiredWidth > viewItem.MaxWidth)
+                desiredWidth = (nfloat)viewItem.MaxWidth;
+
+            // Arrange the MAUI view at measured size
+            mauiView.Arrange(new Microsoft.Maui.Graphics.Rect(0, 0, desiredWidth, desiredHeight));
+
+            NSView itemView;
+            if (viewItem.ShowsToolbarButtonStyle)
+            {
+                // Wrap in an NSButton for native toolbar hover/click states
+                var button = new NSButton(new CoreGraphics.CGRect(0, 0, desiredWidth, desiredHeight));
+                button.BezelStyle = NSBezelStyle.TexturedRounded;
+                button.Bordered = true;
+                button.Title = string.Empty;
+                button.SetButtonType(NSButtonType.MomentaryPushIn);
+                button.ImagePosition = NSCellImagePosition.NoImage;
+
+                button.AddSubview(platformView);
+                platformView.TranslatesAutoresizingMaskIntoConstraints = false;
+                platformView.LeadingAnchor.ConstraintEqualTo(button.LeadingAnchor).Active = true;
+                platformView.TrailingAnchor.ConstraintEqualTo(button.TrailingAnchor).Active = true;
+                platformView.CenterYAnchor.ConstraintEqualTo(button.CenterYAnchor).Active = true;
+                platformView.HeightAnchor.ConstraintEqualTo(desiredHeight).Active = true;
+
+                var capturedViewItem = viewItem;
+                button.Activated += (_, _) => capturedViewItem.RaiseClicked();
+
+                itemView = button;
+            }
+            else
+            {
+                // Place the MAUI view directly — handle interactions via MAUI gestures
+                platformView.Frame = new CoreGraphics.CGRect(0, 0, desiredWidth, desiredHeight);
+                itemView = platformView;
+            }
+
+            nsItem.View = itemView;
+            nsItem.MinSize = new CoreGraphics.CGSize(desiredWidth, desiredHeight);
+            nsItem.MaxSize = new CoreGraphics.CGSize(
+                viewItem.MaxWidth > 0 ? (nfloat)viewItem.MaxWidth : desiredWidth,
+                desiredHeight);
+        }
+
         return nsItem;
     }
 

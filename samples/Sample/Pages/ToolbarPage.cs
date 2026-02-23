@@ -102,6 +102,9 @@ public class ToolbarPage : ContentPage
 
 					SectionHeader("System Toolbar Items (macOS)"),
 					CreateSystemItemButtons(),
+
+					SectionHeader("Custom View (macOS)"),
+					CreateCustomViewButtons(),
 #endif
 
 					SectionHeader("Manage Items"),
@@ -962,6 +965,61 @@ public class ToolbarPage : ContentPage
 		FontSize = 22,
 		FontAttributes = FontAttributes.Bold,
 	}.WithSectionStyle();
+
+	View CreateCustomViewButtons()
+	{
+		var addLabel = MakeButton("Add View (no border)", AppColors.AccentBlue, (s, e) =>
+		{
+			var label = new Label
+			{
+				Text = "Status: Ready",
+				FontSize = 13,
+				VerticalTextAlignment = TextAlignment.Center,
+				Padding = new Thickness(4, 0),
+			};
+			var viewItem = new MacOSViewToolbarItem
+			{
+				Label = "Status",
+				View = label,
+			};
+			MacOSToolbar.SetViewItems(this, new List<MacOSViewToolbarItem> { viewItem });
+			SetStatus("Added borderless custom view to toolbar");
+		});
+
+		var addStack = MakeButton("Add View (button style)", AppColors.AccentGreen, (s, e) =>
+		{
+			var progress = new ProgressBar { Progress = 0.6, WidthRequest = 80, VerticalOptions = LayoutOptions.Center };
+			var stack = new HorizontalStackLayout
+			{
+				Spacing = 6,
+				Padding = new Thickness(8, 0),
+				VerticalOptions = LayoutOptions.Center,
+				Children =
+				{
+					new Label { Text = "Build:", FontSize = 12, VerticalOptions = LayoutOptions.Center, VerticalTextAlignment = TextAlignment.Center },
+					progress,
+					new Label { Text = "60%", FontSize = 12, VerticalOptions = LayoutOptions.Center, VerticalTextAlignment = TextAlignment.Center },
+				}
+			};
+			var viewItem = new MacOSViewToolbarItem
+			{
+				Label = "Progress",
+				ShowsToolbarButtonStyle = true,
+				View = stack,
+			};
+			viewItem.Clicked += (_, _) => SetStatus("Progress view clicked!");
+			MacOSToolbar.SetViewItems(this, new List<MacOSViewToolbarItem> { viewItem });
+			SetStatus("Added button-style custom view to toolbar");
+		});
+
+		var clearViews = MakeButton("Clear Views", AppColors.AccentRed, (s, e) =>
+		{
+			MacOSToolbar.SetViewItems(this, null);
+			SetStatus("Cleared custom view toolbar items");
+		});
+
+		return new VerticalStackLayout { Spacing = 8, Children = { addLabel, addStack, clearViews } };
+	}
 }
 
 #if MACAPP
