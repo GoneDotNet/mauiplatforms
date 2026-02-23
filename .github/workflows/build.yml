@@ -48,8 +48,11 @@ jobs:
     - name: Build
       run: dotnet build build.slnf -m -property:Configuration=Release
 
-    - name: Build Sample App
+    - name: Build Sample App (arm64)
       run: dotnet build samples/SampleMac/SampleMac.csproj -c Release -p:GeneratePackageOnBuild=false -r osx-arm64
+
+    - name: Build Sample App (x64)
+      run: dotnet build samples/SampleMac/SampleMac.csproj -c Release -p:GeneratePackageOnBuild=false -r osx-x64
 
     - name: Test
       run: dotnet test build.slnf --no-build -property:Configuration=Release --logger "console;verbosity=normal" || true
