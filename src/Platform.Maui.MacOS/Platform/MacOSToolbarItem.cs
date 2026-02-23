@@ -76,6 +76,9 @@ public abstract class MacOSToolbarLayoutItem
 	/// <summary>A thin vertical separator line.</summary>
 	public static readonly MacOSToolbarLayoutItem Separator = new SpacerLayoutItem(SpacerKind.Separator);
 
+	/// <summary>The page title label (centered by default). Use in content layouts to position the title.</summary>
+	public static readonly MacOSToolbarLayoutItem Title = new TitleLayoutItem();
+
 	/// <summary>References a <see cref="ToolbarItem"/> that must also be in the page's ToolbarItems collection.</summary>
 	public static MacOSToolbarLayoutItem Item(ToolbarItem item) => new ToolbarItemLayoutRef(item);
 }
@@ -97,6 +100,12 @@ public sealed class ToolbarItemLayoutRef : MacOSToolbarLayoutItem
 	internal ToolbarItemLayoutRef(ToolbarItem item) => ToolbarItem = item;
 }
 
+/// <summary>The page title element in a content toolbar layout.</summary>
+public sealed class TitleLayoutItem : MacOSToolbarLayoutItem
+{
+	internal TitleLayoutItem() { }
+}
+
 /// <summary>
 /// Attached properties for configuring the macOS toolbar layout at the page level.
 /// </summary>
@@ -106,7 +115,7 @@ public static class MacOSToolbar
 	/// When set on a <see cref="Page"/>, defines the exact layout of the sidebar toolbar area.
 	/// Overrides the per-item <see cref="MacOSToolbarItem.PlacementProperty"/> convenience API.
 	/// Items referenced here must also be in <see cref="Page.ToolbarItems"/>.
-	/// Items NOT in this layout go to the content toolbar area.
+	/// Items NOT in this layout go to the content toolbar area (or <see cref="ContentLayoutProperty"/>).
 	/// </summary>
 	public static readonly BindableProperty SidebarLayoutProperty =
 		BindableProperty.CreateAttached(
@@ -120,4 +129,23 @@ public static class MacOSToolbar
 
 	public static void SetSidebarLayout(BindableObject obj, IList<MacOSToolbarLayoutItem>? value)
 		=> obj.SetValue(SidebarLayoutProperty, value);
+
+	/// <summary>
+	/// When set on a <see cref="Page"/>, defines the exact layout of the content toolbar area
+	/// (right of the tracking separator). Items referenced here must also be in
+	/// <see cref="Page.ToolbarItems"/>. When not set, content items are laid out with
+	/// the default [flex] [title] [flex] [items...] pattern.
+	/// </summary>
+	public static readonly BindableProperty ContentLayoutProperty =
+		BindableProperty.CreateAttached(
+			"ContentLayout",
+			typeof(IList<MacOSToolbarLayoutItem>),
+			typeof(MacOSToolbar),
+			defaultValue: null);
+
+	public static IList<MacOSToolbarLayoutItem>? GetContentLayout(BindableObject obj)
+		=> (IList<MacOSToolbarLayoutItem>?)obj.GetValue(ContentLayoutProperty);
+
+	public static void SetContentLayout(BindableObject obj, IList<MacOSToolbarLayoutItem>? value)
+		=> obj.SetValue(ContentLayoutProperty, value);
 }

@@ -357,14 +357,58 @@ public class ToolbarPage : ContentPage
 			SetStatus("Set complex explicit layout with spaces and flex");
 		});
 
-		var clearLayout = MakeButton("Clear Explicit Layout", AppColors.AccentRed, (s, e) =>
+		var setBothLayouts = MakeButton("Set Both: Sidebar + Content layouts", AppColors.AccentGreen, (s, e) =>
 		{
-			MacOSToolbar.SetSidebarLayout(this, null);
+			ToolbarItems.Clear();
+			_itemCount = 0;
+
+			var addBtn = new ToolbarItem { Text = "Add", IconImageSource = "plus" };
+			addBtn.Clicked += (_, _) => SetStatus("Clicked: Add");
+			ToolbarItems.Add(addBtn);
+
+			var filterBtn = new ToolbarItem { Text = "Filter", IconImageSource = "line.3.horizontal.decrease" };
+			filterBtn.Clicked += (_, _) => SetStatus("Clicked: Filter");
+			ToolbarItems.Add(filterBtn);
+
+			var shareBtn = new ToolbarItem { Text = "Share", IconImageSource = "square.and.arrow.up" };
+			shareBtn.Clicked += (_, _) => SetStatus("Clicked: Share");
+			ToolbarItems.Add(shareBtn);
+
+			var settingsBtn = new ToolbarItem { Text = "Settings", IconImageSource = "gear" };
+			settingsBtn.Clicked += (_, _) => SetStatus("Clicked: Settings");
+			ToolbarItems.Add(settingsBtn);
+
+			// Sidebar: [Add] <flex> [Filter]
+			MacOSToolbar.SetSidebarLayout(this, new MacOSToolbarLayoutItem[]
+			{
+				MacOSToolbarLayoutItem.Item(addBtn),
+				MacOSToolbarLayoutItem.FlexibleSpace,
+				MacOSToolbarLayoutItem.Item(filterBtn),
+			});
+
+			// Content: [Share] <flex> [Title] <flex> [Settings]
+			MacOSToolbar.SetContentLayout(this, new MacOSToolbarLayoutItem[]
+			{
+				MacOSToolbarLayoutItem.Item(shareBtn),
+				MacOSToolbarLayoutItem.FlexibleSpace,
+				MacOSToolbarLayoutItem.Title,
+				MacOSToolbarLayoutItem.FlexibleSpace,
+				MacOSToolbarLayoutItem.Item(settingsBtn),
+			});
+
 			RefreshDisplay();
-			SetStatus("Cleared explicit layout — items now use Placement property");
+			SetStatus("Set both sidebar + content explicit layouts");
 		});
 
-		return new VerticalStackLayout { Spacing = 8, Children = { desc, setLayout, setSpaced, setComplex, clearLayout } };
+		var clearLayout = MakeButton("Clear Explicit Layouts", AppColors.AccentRed, (s, e) =>
+		{
+			MacOSToolbar.SetSidebarLayout(this, null);
+			MacOSToolbar.SetContentLayout(this, null);
+			RefreshDisplay();
+			SetStatus("Cleared explicit layouts — items now use Placement property");
+		});
+
+		return new VerticalStackLayout { Spacing = 8, Children = { desc, setLayout, setSpaced, setComplex, setBothLayouts, clearLayout } };
 	}
 #endif
 

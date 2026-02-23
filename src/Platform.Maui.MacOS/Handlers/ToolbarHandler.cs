@@ -186,10 +186,14 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         bool hasBackButton = ShouldShowBackButton();
         bool hasFlyoutToggle = _flyoutPage != null;
 
-        // Check for explicit sidebar layout on the current page
-        var explicitLayout = _currentPage != null
+        // Check for explicit layouts on the current page
+        var explicitSidebarLayout = _currentPage != null
             ? MacOSToolbar.GetSidebarLayout(_currentPage) : null;
-        bool hasExplicitLayout = explicitLayout != null && explicitLayout.Count > 0;
+        bool hasExplicitSidebarLayout = explicitSidebarLayout != null && explicitSidebarLayout.Count > 0;
+
+        var explicitContentLayout = _currentPage != null
+            ? MacOSToolbar.GetContentLayout(_currentPage) : null;
+        bool hasExplicitContentLayout = explicitContentLayout != null && explicitContentLayout.Count > 0;
 
         // Partition toolbar items into sidebar and content
         var contentItems = new List<ToolbarItem>();
@@ -197,15 +201,22 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         var sidebarCenter = new List<ToolbarItem>();
         var sidebarTrailing = new List<ToolbarItem>();
 
-        // Collect items referenced by explicit layout for quick lookup
-        HashSet<ToolbarItem>? explicitSidebarItems = null;
-        if (hasExplicitLayout)
+        // Collect items referenced by explicit layouts for quick lookup
+        HashSet<ToolbarItem> explicitItems = new();
+        if (hasExplicitSidebarLayout)
         {
-            explicitSidebarItems = new HashSet<ToolbarItem>();
-            foreach (var entry in explicitLayout!)
+            foreach (var entry in explicitSidebarLayout!)
             {
                 if (entry is ToolbarItemLayoutRef itemRef)
-                    explicitSidebarItems.Add(itemRef.ToolbarItem);
+                    explicitItems.Add(itemRef.ToolbarItem);
+            }
+        }
+        if (hasExplicitContentLayout)
+        {
+            foreach (var entry in explicitContentLayout!)
+            {
+                if (entry is ToolbarItemLayoutRef itemRef)
+                    explicitItems.Add(itemRef.ToolbarItem);
             }
         }
 
@@ -216,12 +227,14 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
                 if (item.Order == ToolbarItemOrder.Secondary)
                     continue;
 
-                if (hasExplicitLayout)
+                // Items claimed by an explicit layout are handled in the layout walk
+                if (explicitItems.Contains(item))
+                    continue;
+
+                if (hasExplicitSidebarLayout)
                 {
-                    // Explicit mode: items in the layout go to sidebar, rest to content
-                    if (!explicitSidebarItems!.Contains(item))
-                        contentItems.Add(item);
-                    // Sidebar items are handled by the explicit layout walk below
+                    // Explicit sidebar mode: unclaimed items go to content
+                    contentItems.Add(item);
                 }
                 else
                 {
@@ -246,8 +259,8 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             }
         }
 
-        bool hasContentItems = contentItems.Count > 0;
-        bool hasSidebarItems = hasExplicitLayout
+        bool hasContentItems = contentItems.Count > 0 || hasExplicitContentLayout;
+        bool hasSidebarItems = hasExplicitSidebarLayout
             || sidebarLeading.Count > 0 || sidebarCenter.Count > 0 || sidebarTrailing.Count > 0;
         bool hasToolbarItems = hasContentItems || hasSidebarItems;
 
@@ -297,10 +310,10 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         // Sidebar-placed toolbar items
         int sidebarIdx = 0;
 
-        if (hasExplicitLayout)
+        if (hasExplicitSidebarLayout)
         {
             // Explicit layout: walk the layout array and emit items/spacers in order
-            foreach (var entry in explicitLayout!)
+            foreach (var entry in explicitSidebarLayout!)
             {
                 if (entry is ToolbarItemLayoutRef itemRef)
                 {
@@ -368,23 +381,62 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             _itemIdentifiers.Add(TrackingSeparatorId);
 
         // Content area items (after tracking separator)
-        // Flexible space between left nav items and centered title
-        _itemIdentifiers.Add(FlexibleSpaceId);
-
-        // Centered title (since window title is hidden)
-        _itemIdentifiers.Add(TitleId);
-
-        // Flexible space between title and right-side toolbar items
-        _itemIdentifiers.Add(FlexibleSpaceId);
-
-        int contentIdx = 0;
-        foreach (var item in contentItems)
+        if (hasExplicitContentLayout)
         {
-            var id = $"{ItemIdPrefix}{contentIdx}";
-            _items.Add(item);
-            _itemIdentifiers.Add(id);
-            item.PropertyChanged += OnToolbarItemPropertyChanged;
-            contentIdx++;
+            // Explicit content layout: walk the layout array
+            int contentIdx = 0;
+            foreach (var entry in explicitContentLayout!)
+            {
+                if (entry is ToolbarItemLayoutRef itemRef)
+                {
+                    var id = $"{ItemIdPrefix}{contentIdx}";
+                    _items.Add(itemRef.ToolbarItem);
+                    _itemIdentifiers.Add(id);
+                    itemRef.ToolbarItem.PropertyChanged += OnToolbarItemPropertyChanged;
+                    contentIdx++;
+                }
+                else if (entry is TitleLayoutItem)
+                {
+                    _itemIdentifiers.Add(TitleId);
+                }
+                else if (entry is SpacerLayoutItem spacer)
+                {
+                    _itemIdentifiers.Add(spacer.Kind switch
+                    {
+                        SpacerKind.Flexible => FlexibleSpaceId,
+                        SpacerKind.Fixed => FixedSpaceId,
+                        SpacerKind.Separator => SeparatorId,
+                        _ => FlexibleSpaceId,
+                    });
+                }
+            }
+
+            // Append any remaining unclaimed content items after the explicit layout
+            foreach (var item in contentItems)
+            {
+                var id = $"{ItemIdPrefix}{contentIdx}";
+                _items.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                contentIdx++;
+            }
+        }
+        else
+        {
+            // Default content layout: [flex] [title] [flex] [items...]
+            _itemIdentifiers.Add(FlexibleSpaceId);
+            _itemIdentifiers.Add(TitleId);
+            _itemIdentifiers.Add(FlexibleSpaceId);
+
+            int contentIdx = 0;
+            foreach (var item in contentItems)
+            {
+                var id = $"{ItemIdPrefix}{contentIdx}";
+                _items.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                contentIdx++;
+            }
         }
 
         // Attach toolbar if not already attached
