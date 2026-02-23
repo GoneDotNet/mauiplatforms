@@ -5,6 +5,7 @@
         <RootNamespace>Microsoft.Maui.Essentials.MacOS</RootNamespace>
         <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
         <PackageVersion>$(MacOSPackageVersion)</PackageVersion>
+        <PackageId>Platform.Maui.MacOS.Essentials</PackageId>
     </PropertyGroup>
 
     <ItemGroup>
