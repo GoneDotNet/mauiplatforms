@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using Foundation;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Platform.MacOS;
 using AppKit;
 
 namespace Microsoft.Maui.Platform.MacOS.Handlers;
@@ -13,20 +14,25 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
 {
     const string ToolbarIdPrefix = "MauiToolbar_";
     const string ItemIdPrefix = "MauiToolbarItem_";
+    const string SidebarItemIdPrefix = "MauiSidebarItem_";
     const string FlexibleSpaceId = "NSToolbarFlexibleSpaceItem";
     const string SidebarToggleId = "MauiSidebarToggle";
+    const string TrackingSeparatorId = "MauiTrackingSeparator";
     const string BackButtonId = "MauiBackButton";
     const string TitleId = "MauiTitle";
+    const nint SidebarItemTagOffset = 100000;
     static int _toolbarCounter;
 
     NSWindow? _window;
     NSToolbar? _toolbar;
     readonly List<ToolbarItem> _items = new();
+    readonly List<ToolbarItem> _sidebarItems = new();
     readonly List<string> _itemIdentifiers = new();
     Page? _currentPage;
     FlyoutPage? _flyoutPage;
     NavigationPage? _navigationPage;
     Shell? _shell;
+    NSSplitView? _splitView;
 
     public void AttachToWindow(NSWindow window)
     {
@@ -39,6 +45,15 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             AllowsUserCustomization = false,
         };
         _window.Toolbar = _toolbar;
+    }
+
+    /// <summary>
+    /// Sets the split view used by NSTrackingSeparatorToolbarItem to align the
+    /// toolbar divider with the sidebar/content divider.
+    /// </summary>
+    public void SetSplitView(NSSplitView? splitView)
+    {
+        _splitView = splitView;
     }
 
     public void SetPage(Page? page)
@@ -114,6 +129,8 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     {
         foreach (var item in _items)
             item.PropertyChanged -= OnToolbarItemPropertyChanged;
+        foreach (var item in _sidebarItems)
+            item.PropertyChanged -= OnToolbarItemPropertyChanged;
     }
 
     bool ShouldShowBackButton()
@@ -161,11 +178,31 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     {
         UnsubscribeCommands();
         _items.Clear();
+        _sidebarItems.Clear();
         _itemIdentifiers.Clear();
 
         bool hasBackButton = ShouldShowBackButton();
         bool hasFlyoutToggle = _flyoutPage != null;
-        bool hasToolbarItems = toolbarItems != null && toolbarItems.Any(i => i.Order != ToolbarItemOrder.Secondary);
+
+        // Partition toolbar items into sidebar and content placement
+        var contentItems = new List<ToolbarItem>();
+        var sidebarToolbarItems = new List<ToolbarItem>();
+        if (toolbarItems != null)
+        {
+            foreach (var item in toolbarItems)
+            {
+                if (item.Order == ToolbarItemOrder.Secondary)
+                    continue;
+                if (MacOSToolbarItem.GetPlacement(item) == MacOSToolbarItemPlacement.Sidebar)
+                    sidebarToolbarItems.Add(item);
+                else
+                    contentItems.Add(item);
+            }
+        }
+
+        bool hasContentItems = contentItems.Count > 0;
+        bool hasSidebarItems = sidebarToolbarItems.Count > 0;
+        bool hasToolbarItems = hasContentItems || hasSidebarItems;
 
         // Only show the toolbar if there's meaningful content
         bool needsToolbar = hasBackButton || hasFlyoutToggle || hasToolbarItems;
@@ -185,7 +222,8 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
                 return;
             }
 
-            // Keep toolbar attached but clear its items
+            // Keep toolbar attached but clear its items — add tracking separator
+            // if we have a split view so the divider aligns
             if (_window != null && _window.Toolbar == null && _toolbar != null)
                 _window.Toolbar = _toolbar;
 
@@ -193,17 +231,38 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             {
                 while (_toolbar.Items.Length > 0)
                     _toolbar.RemoveItem(0);
+
+                if (_splitView != null)
+                    _toolbar.InsertItem(TrackingSeparatorId, 0);
             }
             return;
         }
 
-        // Left side: sidebar toggle, then back button
+        // === Build toolbar item list ===
+
+        // Sidebar area items (before tracking separator)
         if (hasFlyoutToggle)
             _itemIdentifiers.Add(SidebarToggleId);
 
         if (hasBackButton)
             _itemIdentifiers.Add(BackButtonId);
 
+        // Sidebar-placed toolbar items
+        int sidebarIdx = 0;
+        foreach (var item in sidebarToolbarItems)
+        {
+            var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+            _sidebarItems.Add(item);
+            _itemIdentifiers.Add(id);
+            item.PropertyChanged += OnToolbarItemPropertyChanged;
+            sidebarIdx++;
+        }
+
+        // Tracking separator — divides sidebar area from content area
+        if (_splitView != null)
+            _itemIdentifiers.Add(TrackingSeparatorId);
+
+        // Content area items (after tracking separator)
         // Flexible space between left nav items and centered title
         _itemIdentifiers.Add(FlexibleSpaceId);
 
@@ -213,20 +272,14 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         // Flexible space between title and right-side toolbar items
         _itemIdentifiers.Add(FlexibleSpaceId);
 
-        if (toolbarItems != null)
+        int contentIdx = 0;
+        foreach (var item in contentItems)
         {
-            int index = 0;
-            foreach (var item in toolbarItems)
-            {
-                if (item.Order == ToolbarItemOrder.Secondary)
-                    continue;
-
-                var id = $"{ItemIdPrefix}{index}";
-                _items.Add(item);
-                _itemIdentifiers.Add(id);
-                item.PropertyChanged += OnToolbarItemPropertyChanged;
-                index++;
-            }
+            var id = $"{ItemIdPrefix}{contentIdx}";
+            _items.Add(item);
+            _itemIdentifiers.Add(id);
+            item.PropertyChanged += OnToolbarItemPropertyChanged;
+            contentIdx++;
         }
 
         // Attach toolbar if not already attached
@@ -254,6 +307,13 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     [Export("toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:")]
     public NSToolbarItem ToolbarItemForIdentifier(NSToolbar toolbar, string itemIdentifier, bool willBeInserted)
     {
+        // Tracking separator — divides sidebar area from content area
+        if (itemIdentifier == TrackingSeparatorId && _splitView != null)
+        {
+            return NSTrackingSeparatorToolbarItem.GetTrackingSeparatorToolbar(
+                TrackingSeparatorId, _splitView, 0);
+        }
+
         // Sidebar toggle button (hamburger menu)
         if (itemIdentifier == SidebarToggleId)
         {
@@ -341,38 +401,73 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             return nsItem;
         }
 
+        if (itemIdentifier.StartsWith(SidebarItemIdPrefix))
+        {
+            var indexStr = itemIdentifier.Substring(SidebarItemIdPrefix.Length);
+            if (int.TryParse(indexStr, out int sIdx) && sIdx >= 0 && sIdx < _sidebarItems.Count)
+            {
+                var mauiItem = _sidebarItems[sIdx];
+                return CreateToolbarButton(itemIdentifier, mauiItem, sIdx);
+            }
+        }
+
         if (itemIdentifier.StartsWith(ItemIdPrefix))
         {
             var indexStr = itemIdentifier.Substring(ItemIdPrefix.Length);
             if (int.TryParse(indexStr, out int index) && index >= 0 && index < _items.Count)
             {
                 var mauiItem = _items[index];
-                var nsItem = new NSToolbarItem(itemIdentifier)
-                {
-                    Label = mauiItem.Text ?? string.Empty,
-                    PaletteLabel = mauiItem.Text ?? string.Empty,
-                    ToolTip = mauiItem.Text ?? string.Empty,
-                    Enabled = mauiItem.IsEnabled,
-                    Target = this,
-                    Action = new ObjCRuntime.Selector("toolbarItemClicked:"),
-                    Tag = index,
-                };
-
-                var button = new NSButton
-                {
-                    Title = mauiItem.Text ?? string.Empty,
-                    BezelStyle = NSBezelStyle.TexturedRounded,
-                    Tag = index,
-                    Target = this,
-                    Action = new ObjCRuntime.Selector("toolbarItemClicked:"),
-                };
-                nsItem.View = button;
-
-                return nsItem;
+                return CreateToolbarButton(itemIdentifier, mauiItem, index);
             }
         }
 
         return new NSToolbarItem(itemIdentifier);
+    }
+
+    NSToolbarItem CreateToolbarButton(string identifier, ToolbarItem mauiItem, int tag)
+    {
+        // Use a tag offset to distinguish sidebar items from content items
+        nint effectiveTag = identifier.StartsWith(SidebarItemIdPrefix) ? tag + SidebarItemTagOffset : tag;
+
+        var nsItem = new NSToolbarItem(identifier)
+        {
+            Label = mauiItem.Text ?? string.Empty,
+            PaletteLabel = mauiItem.Text ?? string.Empty,
+            ToolTip = mauiItem.Text ?? string.Empty,
+            Enabled = mauiItem.IsEnabled,
+            Target = this,
+            Action = new ObjCRuntime.Selector("toolbarItemClicked:"),
+            Tag = effectiveTag,
+        };
+
+        var button = new NSButton
+        {
+            BezelStyle = NSBezelStyle.TexturedRounded,
+            Tag = effectiveTag,
+            Target = this,
+            Action = new ObjCRuntime.Selector("toolbarItemClicked:"),
+        };
+
+        // Check for SF Symbol icon via MacOSToolbarItem or IconImageSource
+        var iconSource = mauiItem.IconImageSource;
+        NSImage? image = null;
+        if (iconSource is FileImageSource fileSource && !string.IsNullOrEmpty(fileSource.File))
+            image = NSImage.GetSystemSymbol(fileSource.File, null) ?? new NSImage(fileSource.File);
+
+        if (image != null)
+        {
+            button.Image = image;
+            button.Title = string.Empty;
+            button.ImagePosition = NSCellImagePosition.ImageOnly;
+        }
+        else
+        {
+            button.Title = mauiItem.Text ?? string.Empty;
+        }
+
+        button.SetButtonType(NSButtonType.MomentaryPushIn);
+        nsItem.View = button;
+        return nsItem;
     }
 
     [Export("toolbarAllowedItemIdentifiers:")]
@@ -382,7 +477,7 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         // items added later (e.g., back button appearing after a push navigation)
         var ids = new List<string>(_itemIdentifiers)
         {
-            FlexibleSpaceId, BackButtonId, SidebarToggleId, TitleId,
+            FlexibleSpaceId, BackButtonId, SidebarToggleId, TitleId, TrackingSeparatorId,
         };
         return ids.Distinct().ToArray();
     }
@@ -402,12 +497,20 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         else if (sender is NSButton button)
             tag = button.Tag;
 
-        if (tag >= 0 && tag < _items.Count)
+        ToolbarItem? mauiItem = null;
+        if (tag >= SidebarItemTagOffset)
         {
-            var mauiItem = _items[(int)tag];
-            if (mauiItem.IsEnabled)
-                ((IMenuItemController)mauiItem).Activate();
+            int sIdx = (int)(tag - SidebarItemTagOffset);
+            if (sIdx >= 0 && sIdx < _sidebarItems.Count)
+                mauiItem = _sidebarItems[sIdx];
         }
+        else if (tag >= 0 && tag < _items.Count)
+        {
+            mauiItem = _items[(int)tag];
+        }
+
+        if (mauiItem != null && mauiItem.IsEnabled)
+            ((IMenuItemController)mauiItem).Activate();
     }
 
     [Export("sidebarToggleClicked:")]

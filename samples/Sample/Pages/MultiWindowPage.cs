@@ -233,7 +233,7 @@ class DemoShell : Shell
 
 	static ContentPage MakePage(string title, string description, string accent)
 	{
-		return new ContentPage
+		var page = new ContentPage
 		{
 			Title = title,
 			Content = new VerticalStackLayout
@@ -256,6 +256,19 @@ class DemoShell : Shell
 				}
 			}
 		};
+
+		// Sidebar toolbar item (appears in sidebar titlebar area)
+		var sidebarBtn = new ToolbarItem { Text = "Add", IconImageSource = "plus" };
+		MacOSToolbarItem.SetPlacement(sidebarBtn, MacOSToolbarItemPlacement.Sidebar);
+		sidebarBtn.Clicked += (s, e) => page.DisplayAlert("Sidebar", "Add button clicked!", "OK");
+		page.ToolbarItems.Add(sidebarBtn);
+
+		// Content toolbar item (normal area)
+		var contentBtn = new ToolbarItem { Text = "Share", IconImageSource = "square.and.arrow.up" };
+		contentBtn.Clicked += (s, e) => page.DisplayAlert("Content", "Share button clicked!", "OK");
+		page.ToolbarItems.Add(contentBtn);
+
+		return page;
 	}
 }
 

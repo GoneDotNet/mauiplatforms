@@ -251,6 +251,9 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
             handler.PlatformView.Toolbar = null;
             handler.PlatformView.Toolbar = toolbar;
 
+            // Pass the split view to the toolbar manager for NSTrackingSeparatorToolbarItem
+            handler._toolbarManager?.SetSplitView(splitVC.SplitView);
+
             // Recreate modal manager with the new content view
             var contentView = handler.PlatformView.ContentView;
             if (contentView != null)
