@@ -1072,6 +1072,18 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         nsGroup.Label = group.Label ?? string.Empty;
         nsGroup.PaletteLabel = group.Label ?? string.Empty;
 
+        // Wire selection change via Activated event on the group
+        var capturedGroup = group;
+        var capturedNsGroup = nsGroup;
+        nsGroup.Activated += (s, e) =>
+        {
+            var selected = new bool[capturedGroup.Segments.Count];
+            for (int i = 0; i < capturedGroup.Segments.Count; i++)
+                selected[i] = capturedNsGroup.GetSelected((nint)i);
+            capturedGroup.SelectedIndex = (int)capturedNsGroup.SelectedIndex;
+            capturedGroup.RaiseSelectionChanged((int)capturedNsGroup.SelectedIndex, selected);
+        };
+
         // Set representation
         nsGroup.ControlRepresentation = group.Representation switch
         {
