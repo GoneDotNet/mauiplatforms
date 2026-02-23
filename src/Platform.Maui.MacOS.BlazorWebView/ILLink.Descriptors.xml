@@ -1,0 +1,3 @@
+<linker>
+  <assembly fullname="Platform.Maui.MacOS.BlazorWebView" preserve="all" />
+</linker>
