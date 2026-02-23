@@ -7,6 +7,7 @@ namespace Microsoft.Maui.Platform.MacOS;
 /// Sidebar placements (Leading/Center/Trailing) are separated by flexible spaces
 /// so items distribute across the sidebar titlebar area like:
 /// <c>[Leading...] ←flex→ [Center...] ←flex→ [Trailing...]  |  [Content...]</c>
+/// These are ignored when an explicit <see cref="MacOSToolbar.SidebarLayoutProperty"/> is set.
 /// </summary>
 public enum MacOSToolbarItemPlacement
 {
@@ -34,6 +35,7 @@ public static class MacOSToolbarItem
 	/// <summary>
 	/// Controls where this toolbar item appears: in the content toolbar area,
 	/// or in the sidebar titlebar area (leading, center, or trailing).
+	/// Ignored when <see cref="MacOSToolbar.SidebarLayoutProperty"/> is set on the page.
 	/// </summary>
 	public static readonly BindableProperty PlacementProperty =
 		BindableProperty.CreateAttached(
@@ -47,4 +49,75 @@ public static class MacOSToolbarItem
 
 	public static void SetPlacement(BindableObject obj, MacOSToolbarItemPlacement value)
 		=> obj.SetValue(PlacementProperty, value);
+}
+
+/// <summary>
+/// Describes a single element in an explicit sidebar toolbar layout.
+/// Use the static factory members to build a layout array.
+/// </summary>
+/// <example>
+/// <code>
+/// MacOSToolbar.SetSidebarLayout(page, new[]
+/// {
+///     MacOSToolbarLayoutItem.Item(addBtn),
+///     MacOSToolbarLayoutItem.FlexibleSpace,
+///     MacOSToolbarLayoutItem.Item(filterBtn),
+/// });
+/// </code>
+/// </example>
+public abstract class MacOSToolbarLayoutItem
+{
+	/// <summary>A spring that pushes adjacent items apart.</summary>
+	public static readonly MacOSToolbarLayoutItem FlexibleSpace = new SpacerLayoutItem(SpacerKind.Flexible);
+
+	/// <summary>A fixed-width space between items.</summary>
+	public static readonly MacOSToolbarLayoutItem Space = new SpacerLayoutItem(SpacerKind.Fixed);
+
+	/// <summary>A thin vertical separator line.</summary>
+	public static readonly MacOSToolbarLayoutItem Separator = new SpacerLayoutItem(SpacerKind.Separator);
+
+	/// <summary>References a <see cref="ToolbarItem"/> that must also be in the page's ToolbarItems collection.</summary>
+	public static MacOSToolbarLayoutItem Item(ToolbarItem item) => new ToolbarItemLayoutRef(item);
+}
+
+/// <summary>The kind of spacer in a toolbar layout.</summary>
+public enum SpacerKind { Flexible, Fixed, Separator }
+
+/// <summary>A spacer or separator in the toolbar layout.</summary>
+public sealed class SpacerLayoutItem : MacOSToolbarLayoutItem
+{
+	public SpacerKind Kind { get; }
+	internal SpacerLayoutItem(SpacerKind kind) => Kind = kind;
+}
+
+/// <summary>A reference to a <see cref="ToolbarItem"/> in the toolbar layout.</summary>
+public sealed class ToolbarItemLayoutRef : MacOSToolbarLayoutItem
+{
+	public ToolbarItem ToolbarItem { get; }
+	internal ToolbarItemLayoutRef(ToolbarItem item) => ToolbarItem = item;
+}
+
+/// <summary>
+/// Attached properties for configuring the macOS toolbar layout at the page level.
+/// </summary>
+public static class MacOSToolbar
+{
+	/// <summary>
+	/// When set on a <see cref="Page"/>, defines the exact layout of the sidebar toolbar area.
+	/// Overrides the per-item <see cref="MacOSToolbarItem.PlacementProperty"/> convenience API.
+	/// Items referenced here must also be in <see cref="Page.ToolbarItems"/>.
+	/// Items NOT in this layout go to the content toolbar area.
+	/// </summary>
+	public static readonly BindableProperty SidebarLayoutProperty =
+		BindableProperty.CreateAttached(
+			"SidebarLayout",
+			typeof(IList<MacOSToolbarLayoutItem>),
+			typeof(MacOSToolbar),
+			defaultValue: null);
+
+	public static IList<MacOSToolbarLayoutItem>? GetSidebarLayout(BindableObject obj)
+		=> (IList<MacOSToolbarLayoutItem>?)obj.GetValue(SidebarLayoutProperty);
+
+	public static void SetSidebarLayout(BindableObject obj, IList<MacOSToolbarLayoutItem>? value)
+		=> obj.SetValue(SidebarLayoutProperty, value);
 }

@@ -16,6 +16,8 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     const string ItemIdPrefix = "MauiToolbarItem_";
     const string SidebarItemIdPrefix = "MauiSidebarItem_";
     const string FlexibleSpaceId = "NSToolbarFlexibleSpaceItem";
+    const string FixedSpaceId = "NSToolbarSpaceItem";
+    const string SeparatorId = "NSToolbarSeparatorItem";
     const string SidebarToggleId = "MauiSidebarToggle";
     const string TrackingSeparatorId = "MauiTrackingSeparator";
     const string BackButtonId = "MauiBackButton";
@@ -184,38 +186,69 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         bool hasBackButton = ShouldShowBackButton();
         bool hasFlyoutToggle = _flyoutPage != null;
 
-        // Partition toolbar items into sidebar and content placement
+        // Check for explicit sidebar layout on the current page
+        var explicitLayout = _currentPage != null
+            ? MacOSToolbar.GetSidebarLayout(_currentPage) : null;
+        bool hasExplicitLayout = explicitLayout != null && explicitLayout.Count > 0;
+
+        // Partition toolbar items into sidebar and content
         var contentItems = new List<ToolbarItem>();
         var sidebarLeading = new List<ToolbarItem>();
         var sidebarCenter = new List<ToolbarItem>();
         var sidebarTrailing = new List<ToolbarItem>();
+
+        // Collect items referenced by explicit layout for quick lookup
+        HashSet<ToolbarItem>? explicitSidebarItems = null;
+        if (hasExplicitLayout)
+        {
+            explicitSidebarItems = new HashSet<ToolbarItem>();
+            foreach (var entry in explicitLayout!)
+            {
+                if (entry is ToolbarItemLayoutRef itemRef)
+                    explicitSidebarItems.Add(itemRef.ToolbarItem);
+            }
+        }
+
         if (toolbarItems != null)
         {
             foreach (var item in toolbarItems)
             {
                 if (item.Order == ToolbarItemOrder.Secondary)
                     continue;
-                var placement = MacOSToolbarItem.GetPlacement(item);
-                switch (placement)
+
+                if (hasExplicitLayout)
                 {
-                    case MacOSToolbarItemPlacement.SidebarLeading:
-                        sidebarLeading.Add(item);
-                        break;
-                    case MacOSToolbarItemPlacement.SidebarCenter:
-                        sidebarCenter.Add(item);
-                        break;
-                    case MacOSToolbarItemPlacement.SidebarTrailing:
-                        sidebarTrailing.Add(item);
-                        break;
-                    default:
+                    // Explicit mode: items in the layout go to sidebar, rest to content
+                    if (!explicitSidebarItems!.Contains(item))
                         contentItems.Add(item);
-                        break;
+                    // Sidebar items are handled by the explicit layout walk below
+                }
+                else
+                {
+                    // Convenience mode: partition by Placement property
+                    var placement = MacOSToolbarItem.GetPlacement(item);
+                    switch (placement)
+                    {
+                        case MacOSToolbarItemPlacement.SidebarLeading:
+                            sidebarLeading.Add(item);
+                            break;
+                        case MacOSToolbarItemPlacement.SidebarCenter:
+                            sidebarCenter.Add(item);
+                            break;
+                        case MacOSToolbarItemPlacement.SidebarTrailing:
+                            sidebarTrailing.Add(item);
+                            break;
+                        default:
+                            contentItems.Add(item);
+                            break;
+                    }
                 }
             }
         }
 
         bool hasContentItems = contentItems.Count > 0;
-        bool hasSidebarItems = sidebarLeading.Count > 0 || sidebarCenter.Count > 0 || sidebarTrailing.Count > 0;
+        bool hasSidebarItems = hasExplicitLayout
+            || sidebarLeading.Count > 0 || sidebarCenter.Count > 0 || sidebarTrailing.Count > 0;
         bool hasToolbarItems = hasContentItems || hasSidebarItems;
 
         // Only show the toolbar if there's meaningful content
@@ -261,48 +294,73 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         if (hasBackButton)
             _itemIdentifiers.Add(BackButtonId);
 
-        // Sidebar-placed toolbar items: [Leading] <flex> [Center] <flex> [Trailing]
+        // Sidebar-placed toolbar items
         int sidebarIdx = 0;
 
-        foreach (var item in sidebarLeading)
+        if (hasExplicitLayout)
         {
-            var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
-            _sidebarItems.Add(item);
-            _itemIdentifiers.Add(id);
-            item.PropertyChanged += OnToolbarItemPropertyChanged;
-            sidebarIdx++;
+            // Explicit layout: walk the layout array and emit items/spacers in order
+            foreach (var entry in explicitLayout!)
+            {
+                if (entry is ToolbarItemLayoutRef itemRef)
+                {
+                    var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+                    _sidebarItems.Add(itemRef.ToolbarItem);
+                    _itemIdentifiers.Add(id);
+                    itemRef.ToolbarItem.PropertyChanged += OnToolbarItemPropertyChanged;
+                    sidebarIdx++;
+                }
+                else if (entry is SpacerLayoutItem spacer)
+                {
+                    _itemIdentifiers.Add(spacer.Kind switch
+                    {
+                        SpacerKind.Flexible => FlexibleSpaceId,
+                        SpacerKind.Fixed => FixedSpaceId,
+                        SpacerKind.Separator => SeparatorId,
+                        _ => FlexibleSpaceId,
+                    });
+                }
+            }
         }
-
-        // Insert flex space if there are center or trailing items after leading
-        if (sidebarLeading.Count > 0 && (sidebarCenter.Count > 0 || sidebarTrailing.Count > 0))
-            _itemIdentifiers.Add(FlexibleSpaceId);
-        // Also insert flex space if no leading items but we have center items
-        // (to push center away from the left edge toggle/back buttons)
-        else if (sidebarLeading.Count == 0 && sidebarCenter.Count > 0)
-            _itemIdentifiers.Add(FlexibleSpaceId);
-
-        foreach (var item in sidebarCenter)
+        else
         {
-            var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
-            _sidebarItems.Add(item);
-            _itemIdentifiers.Add(id);
-            item.PropertyChanged += OnToolbarItemPropertyChanged;
-            sidebarIdx++;
-        }
+            // Convenience mode: [Leading] <flex> [Center] <flex> [Trailing]
+            foreach (var item in sidebarLeading)
+            {
+                var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+                _sidebarItems.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                sidebarIdx++;
+            }
 
-        // Insert flex space between center and trailing (or leading and trailing if no center)
-        if (sidebarCenter.Count > 0 && sidebarTrailing.Count > 0)
-            _itemIdentifiers.Add(FlexibleSpaceId);
-        else if (sidebarCenter.Count == 0 && sidebarLeading.Count == 0 && sidebarTrailing.Count > 0)
-            _itemIdentifiers.Add(FlexibleSpaceId);
+            if (sidebarLeading.Count > 0 && (sidebarCenter.Count > 0 || sidebarTrailing.Count > 0))
+                _itemIdentifiers.Add(FlexibleSpaceId);
+            else if (sidebarLeading.Count == 0 && sidebarCenter.Count > 0)
+                _itemIdentifiers.Add(FlexibleSpaceId);
 
-        foreach (var item in sidebarTrailing)
-        {
-            var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
-            _sidebarItems.Add(item);
-            _itemIdentifiers.Add(id);
-            item.PropertyChanged += OnToolbarItemPropertyChanged;
-            sidebarIdx++;
+            foreach (var item in sidebarCenter)
+            {
+                var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+                _sidebarItems.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                sidebarIdx++;
+            }
+
+            if (sidebarCenter.Count > 0 && sidebarTrailing.Count > 0)
+                _itemIdentifiers.Add(FlexibleSpaceId);
+            else if (sidebarCenter.Count == 0 && sidebarLeading.Count == 0 && sidebarTrailing.Count > 0)
+                _itemIdentifiers.Add(FlexibleSpaceId);
+
+            foreach (var item in sidebarTrailing)
+            {
+                var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+                _sidebarItems.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                sidebarIdx++;
+            }
         }
 
         // Tracking separator — divides sidebar area from content area
@@ -524,7 +582,8 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         // items added later (e.g., back button appearing after a push navigation)
         var ids = new List<string>(_itemIdentifiers)
         {
-            FlexibleSpaceId, BackButtonId, SidebarToggleId, TitleId, TrackingSeparatorId,
+            FlexibleSpaceId, FixedSpaceId, SeparatorId,
+            BackButtonId, SidebarToggleId, TitleId, TrackingSeparatorId,
         };
         return ids.Distinct().ToArray();
     }

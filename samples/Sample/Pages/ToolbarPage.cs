@@ -67,6 +67,11 @@ public class ToolbarPage : ContentPage
 					CreateSidebarPlacementButtons(),
 #endif
 
+#if MACAPP
+					SectionHeader("Explicit Layout (macOS)"),
+					CreateExplicitLayoutButtons(),
+#endif
+
 					SectionHeader("Manage Items"),
 					CreateManageButtons(),
 
@@ -250,6 +255,116 @@ public class ToolbarPage : ContentPage
 		});
 
 		return new VerticalStackLayout { Spacing = 8, Children = { addLeading, addCenter, addTrailing, addAllThree } };
+	}
+
+	View CreateExplicitLayoutButtons()
+	{
+		var desc = new Label
+		{
+			Text = "Set an explicit sidebar layout array with full control over item order, " +
+				"flexible spaces, fixed spaces, and separators. Overrides the Leading/Center/Trailing API.",
+			FontSize = 13,
+		}.WithSecondaryText();
+
+		var setLayout = MakeButton("Set: [+] ─ [Filter] ⟷ [Search]", AppColors.AccentBlue, (s, e) =>
+		{
+			ToolbarItems.Clear();
+			_itemCount = 0;
+
+			var addBtn = new ToolbarItem { Text = "Add", IconImageSource = "plus" };
+			addBtn.Clicked += (_, _) => SetStatus("Clicked: Add");
+			ToolbarItems.Add(addBtn);
+
+			var filterBtn = new ToolbarItem { Text = "Filter", IconImageSource = "line.3.horizontal.decrease" };
+			filterBtn.Clicked += (_, _) => SetStatus("Clicked: Filter");
+			ToolbarItems.Add(filterBtn);
+
+			var searchBtn = new ToolbarItem { Text = "Search", IconImageSource = "magnifyingglass" };
+			searchBtn.Clicked += (_, _) => SetStatus("Clicked: Search");
+			ToolbarItems.Add(searchBtn);
+
+			var shareBtn = new ToolbarItem { Text = "Share", IconImageSource = "square.and.arrow.up" };
+			shareBtn.Clicked += (_, _) => SetStatus("Clicked: Share (content)");
+			ToolbarItems.Add(shareBtn);
+
+			// Explicit layout: [Add] [Separator] [Filter] [FlexSpace] [Search]
+			MacOSToolbar.SetSidebarLayout(this, new MacOSToolbarLayoutItem[]
+			{
+				MacOSToolbarLayoutItem.Item(addBtn),
+				MacOSToolbarLayoutItem.Separator,
+				MacOSToolbarLayoutItem.Item(filterBtn),
+				MacOSToolbarLayoutItem.FlexibleSpace,
+				MacOSToolbarLayoutItem.Item(searchBtn),
+			});
+
+			RefreshDisplay();
+			SetStatus("Set explicit layout: [Add] | [Filter] ⟷ [Search] — Share goes to content area");
+		});
+
+		var setSpaced = MakeButton("Set: ⟷ [Center] ⟷", AppColors.AccentTeal, (s, e) =>
+		{
+			ToolbarItems.Clear();
+			_itemCount = 0;
+
+			var centerBtn = new ToolbarItem { Text = "Title", IconImageSource = "text.aligncenter" };
+			centerBtn.Clicked += (_, _) => SetStatus("Clicked: Title");
+			ToolbarItems.Add(centerBtn);
+
+			MacOSToolbar.SetSidebarLayout(this, new MacOSToolbarLayoutItem[]
+			{
+				MacOSToolbarLayoutItem.FlexibleSpace,
+				MacOSToolbarLayoutItem.Item(centerBtn),
+				MacOSToolbarLayoutItem.FlexibleSpace,
+			});
+
+			RefreshDisplay();
+			SetStatus("Set explicit layout: ⟷ [Title] ⟷ — centered in sidebar");
+		});
+
+		var setComplex = MakeButton("Set: [+] [Fav] · [Title] · ⟷ [Filter]", AppColors.AccentPurple, (s, e) =>
+		{
+			ToolbarItems.Clear();
+			_itemCount = 0;
+
+			var addBtn = new ToolbarItem { Text = "Add", IconImageSource = "plus" };
+			addBtn.Clicked += (_, _) => SetStatus("Clicked: Add");
+			ToolbarItems.Add(addBtn);
+
+			var favBtn = new ToolbarItem { Text = "Fav", IconImageSource = "star.fill" };
+			favBtn.Clicked += (_, _) => SetStatus("Clicked: Fav");
+			ToolbarItems.Add(favBtn);
+
+			var titleBtn = new ToolbarItem { Text = "Notes", IconImageSource = "text.aligncenter" };
+			titleBtn.Clicked += (_, _) => SetStatus("Clicked: Notes");
+			ToolbarItems.Add(titleBtn);
+
+			var filterBtn = new ToolbarItem { Text = "Filter", IconImageSource = "line.3.horizontal.decrease" };
+			filterBtn.Clicked += (_, _) => SetStatus("Clicked: Filter");
+			ToolbarItems.Add(filterBtn);
+
+			MacOSToolbar.SetSidebarLayout(this, new MacOSToolbarLayoutItem[]
+			{
+				MacOSToolbarLayoutItem.Item(addBtn),
+				MacOSToolbarLayoutItem.Item(favBtn),
+				MacOSToolbarLayoutItem.Space,
+				MacOSToolbarLayoutItem.Item(titleBtn),
+				MacOSToolbarLayoutItem.Space,
+				MacOSToolbarLayoutItem.FlexibleSpace,
+				MacOSToolbarLayoutItem.Item(filterBtn),
+			});
+
+			RefreshDisplay();
+			SetStatus("Set complex explicit layout with spaces and flex");
+		});
+
+		var clearLayout = MakeButton("Clear Explicit Layout", AppColors.AccentRed, (s, e) =>
+		{
+			MacOSToolbar.SetSidebarLayout(this, null);
+			RefreshDisplay();
+			SetStatus("Cleared explicit layout — items now use Placement property");
+		});
+
+		return new VerticalStackLayout { Spacing = 8, Children = { desc, setLayout, setSpaced, setComplex, clearLayout } };
 	}
 #endif
 
