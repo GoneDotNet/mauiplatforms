@@ -214,7 +214,6 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         CleanupSearchItem();
 
         bool hasBackButton = ShouldShowBackButton();
-        bool hasFlyoutToggle = _flyoutPage != null;
 
         // Resolve search item — can come from explicit layout or page-level property
         _searchItem = _currentPage != null ? MacOSToolbar.GetSearchItem(_currentPage) : null;
@@ -316,7 +315,7 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         bool hasToolbarItems = hasContentItems || hasSidebarItems;
 
         // Only show the toolbar if there's meaningful content
-        bool needsToolbar = hasBackButton || hasFlyoutToggle || hasToolbarItems;
+        bool needsToolbar = hasBackButton || hasToolbarItems;
 
         if (!needsToolbar)
         {
@@ -352,9 +351,6 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         // === Build toolbar item list ===
 
         // Sidebar area items (before tracking separator)
-        if (hasFlyoutToggle)
-            _itemIdentifiers.Add(SidebarToggleId);
-
         if (hasBackButton)
             _itemIdentifiers.Add(BackButtonId);
 
