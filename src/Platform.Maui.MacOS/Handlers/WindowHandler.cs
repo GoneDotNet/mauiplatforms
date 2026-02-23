@@ -218,7 +218,9 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         var pageHandler = page.ToHandler(handler.MauiContext);
         var pageView = pageHandler.ToPlatformView();
 
-        // Shell with NSSplitViewController: set as window's contentViewController
+        Console.WriteLine($"[WindowHandler.MapContent] page={page.GetType().Name}, handler={pageHandler.GetType().Name}");
+
+        // Shell or FlyoutPage with NSSplitViewController: set as window's contentViewController
         // so the system provides proper sidebar titlebar integration (traffic lights
         // inside the sidebar, behind-window vibrancy, inset rounded corners).
         NSSplitViewController? splitVC = null;
@@ -226,6 +228,8 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
             splitVC = shellHandler.SplitViewController;
         else if (page is FlyoutPage && pageHandler is FlyoutPageHandler flyoutHandler)
             splitVC = flyoutHandler.PlatformView.SplitViewController;
+        else if (page is FlyoutPage && pageHandler is NativeSidebarFlyoutPageHandler nativeHandler)
+            splitVC = nativeHandler.SplitViewController;
 
         if (splitVC != null)
         {

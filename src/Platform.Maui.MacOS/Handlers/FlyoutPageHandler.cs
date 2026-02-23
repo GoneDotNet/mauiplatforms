@@ -78,6 +78,10 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
             Foundation.NSNotificationCenter.DefaultCenter.AddObserver(
                 NSView.FrameChangedNotification, OnDetailFrameChanged, _detailContainer);
 
+            _flyoutContainer.PostsFrameChangedNotifications = true;
+            Foundation.NSNotificationCenter.DefaultCenter.AddObserver(
+                NSView.FrameChangedNotification, OnFlyoutFrameChanged, _flyoutContainer);
+
             _splitViewController = new NSSplitViewController();
 
             var sidebarVC = new NSViewController { View = _flyoutContainer };
@@ -136,6 +140,15 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
 
             AddSubview(_splitView);
 
+            // Observe frame changes for resize handling
+            _detailContainer.PostsFrameChangedNotifications = true;
+            Foundation.NSNotificationCenter.DefaultCenter.AddObserver(
+                NSView.FrameChangedNotification, OnDetailFrameChanged, _detailContainer);
+
+            _flyoutContainer.PostsFrameChangedNotifications = true;
+            Foundation.NSNotificationCenter.DefaultCenter.AddObserver(
+                NSView.FrameChangedNotification, OnFlyoutFrameChanged, _flyoutContainer);
+
             NSLayoutConstraint.ActivateConstraints(new[]
             {
                 _splitView.TopAnchor.ConstraintEqualTo(TopAnchor),
@@ -151,9 +164,14 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
         _currentFlyoutView?.RemoveFromSuperview();
         _currentFlyoutView = view;
 
-        view.Frame = _flyoutContainer.Bounds;
+        var bounds = _flyoutContainer.Bounds;
+        view.Frame = bounds;
         view.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable;
         _flyoutContainer.AddSubview(view);
+
+        // Trigger layout if the container already has valid bounds
+        if (bounds.Width > 0 && bounds.Height > 0)
+            OnFlyoutLayout?.Invoke(bounds);
     }
 
     public void ShowDetail(NSView view)
@@ -161,9 +179,14 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
         _currentDetailView?.RemoveFromSuperview();
         _currentDetailView = view;
 
-        view.Frame = _detailContainer.Bounds;
+        var bounds = _detailContainer.Bounds;
+        view.Frame = bounds;
         view.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable;
         _detailContainer.AddSubview(view);
+
+        // Trigger layout if the container already has valid bounds
+        if (bounds.Width > 0 && bounds.Height > 0)
+            OnDetailLayout?.Invoke(bounds);
     }
 
     public void SetFlyoutVisible(bool visible)
@@ -196,6 +219,19 @@ public class FlyoutContainerView : MacOSContainerView, INSSplitViewDelegate
 
         _currentDetailView.Frame = bounds;
         OnDetailLayout?.Invoke(bounds);
+    }
+
+    void OnFlyoutFrameChanged(Foundation.NSNotification notification)
+    {
+        if (_currentFlyoutView == null)
+            return;
+
+        var bounds = _flyoutContainer.Bounds;
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+            return;
+
+        _currentFlyoutView.Frame = bounds;
+        OnFlyoutLayout?.Invoke(bounds);
     }
 
     public override void Layout()

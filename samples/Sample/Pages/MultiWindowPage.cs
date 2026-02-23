@@ -272,78 +272,46 @@ class DemoFlyoutPage : FlyoutPage
 		if (useNative)
 			MacOSFlyoutPage.SetUseNativeSidebar(this, true);
 
-		// Flyout content (used for custom sidebar; ignored when native sidebar is active)
-		Flyout = new ContentPage
-		{
-			Title = "Menu",
-			Content = new VerticalStackLayout
-			{
-				Spacing = 0,
-				Children =
-				{
-					MakeSidebarButton("🏠", "Home", Colors.DodgerBlue),
-					MakeSidebarButton("⚙️", "Settings", Colors.SlateGray),
-					MakeSidebarButton("ℹ️", "About", Colors.MediumSeaGreen),
-					MakeSidebarButton("👤", "Profile", Colors.Orange),
-				}
-			}
-		};
-
+		// Empty flyout page (required by FlyoutPage API; NativeSidebarFlyoutPageHandler uses sidebar items)
+		Flyout = new ContentPage { Title = "Menu" };
 		Detail = new NavigationPage(MakeDetailPage("Home", "Welcome to the FlyoutPage demo!", "#4A90E2"));
 
-		if (useNative)
+		// Both native and custom use sidebar items (since NativeSidebarFlyoutPageHandler
+		// is registered globally). The difference is UseNativeSidebar controls whether
+		// the sidebar gets the inset/vibrancy treatment.
+		MacOSFlyoutPage.SetSidebarItems(this, new List<MacOSSidebarItem>
 		{
-			MacOSFlyoutPage.SetSidebarItems(this, new List<MacOSSidebarItem>
+			new MacOSSidebarItem
 			{
-				new MacOSSidebarItem
+				Title = "General",
+				Children = new List<MacOSSidebarItem>
 				{
-					Title = "General",
-					Children = new List<MacOSSidebarItem>
-					{
-						new() { Title = "Home", SystemImage = "house.fill", Tag = "home" },
-						new() { Title = "Settings", SystemImage = "gear", Tag = "settings" },
-					}
-				},
-				new MacOSSidebarItem
-				{
-					Title = "More",
-					Children = new List<MacOSSidebarItem>
-					{
-						new() { Title = "About", SystemImage = "info.circle", Tag = "about" },
-						new() { Title = "Profile", SystemImage = "person.circle", Tag = "profile" },
-					}
-				},
-			});
-
-			MacOSFlyoutPage.SetSidebarSelectionChanged(this, item =>
+					new() { Title = "Home", SystemImage = "house.fill", Tag = "home" },
+					new() { Title = "Settings", SystemImage = "gear", Tag = "settings" },
+				}
+			},
+			new MacOSSidebarItem
 			{
-				Detail = item.Tag switch
+				Title = "More",
+				Children = new List<MacOSSidebarItem>
 				{
-					"home" => new NavigationPage(MakeDetailPage("Home", "Welcome to the FlyoutPage demo!", "#4A90E2")),
-					"settings" => new NavigationPage(MakeDetailPage("Settings", "Adjust your preferences.", "#7B68EE")),
-					"about" => new NavigationPage(MakeDetailPage("About", "MAUI macOS FlyoutPage sidebar demo.", "#2ECC71")),
-					"profile" => new NavigationPage(MakeDetailPage("Profile", "View your profile info.", "#F39C12")),
-					_ => Detail,
-				};
-			});
-		}
-	}
+					new() { Title = "About", SystemImage = "info.circle", Tag = "about" },
+					new() { Title = "Profile", SystemImage = "person.circle", Tag = "profile" },
+				}
+			},
+		});
 
-	Button MakeSidebarButton(string icon, string title, Color color)
-	{
-		var btn = new Button
+		MacOSFlyoutPage.SetSidebarSelectionChanged(this, item =>
 		{
-			Text = $"{icon}  {title}",
-			BackgroundColor = Colors.Transparent,
-			TextColor = color,
-			FontSize = 14,
-			HorizontalOptions = LayoutOptions.Fill,
-		};
-		btn.Clicked += (s, e) =>
-		{
-			Detail = new NavigationPage(MakeDetailPage(title, $"You selected {title}.", color.ToHex()));
-		};
-		return btn;
+			Detail = item.Tag switch
+			{
+				"home" => new NavigationPage(MakeDetailPage("Home", "Welcome to the FlyoutPage demo!", "#4A90E2")),
+				"settings" => new NavigationPage(MakeDetailPage("Settings", "Adjust your preferences.", "#7B68EE")),
+				"about" => new NavigationPage(MakeDetailPage("About", "MAUI macOS FlyoutPage sidebar demo.", "#2ECC71")),
+				"profile" => new NavigationPage(MakeDetailPage("Profile", "View your profile info.", "#F39C12")),
+				_ => Detail,
+			};
+		});
 	}
 
 	static ContentPage MakeDetailPage(string title, string description, string accent)
