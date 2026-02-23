@@ -40,7 +40,7 @@ public partial class ShellHandler : ViewHandler<Shell, NSView>
 	NSView? _currentPageView;
 	Page? _currentPage;
 	Shell? _shell;
-	nfloat _flyoutWidth = 220;
+	nfloat _flyoutWidth = 300;
 
 	// Custom sidebar mode
 	NSScrollView? _sidebarScrollView;
@@ -145,9 +145,16 @@ public partial class ShellHandler : ViewHandler<Shell, NSView>
 		_sidebarSplitItem = NSSplitViewItem.CreateSidebar(sidebarVC);
 		_sidebarSplitItem.MinimumThickness = 150;
 		_sidebarSplitItem.MaximumThickness = 400;
+		_sidebarSplitItem.PreferredThicknessFraction = 0;
 		_sidebarSplitItem.CanCollapse = false;
 		_sidebarSplitItem.AllowsFullHeightLayout = true;
 		_sidebarSplitItem.TitlebarSeparatorStyle = NSTitlebarSeparatorStyle.None;
+
+		// Set initial sidebar width via a width constraint on the sidebar view
+		_sidebarView.SetFrameSize(new CoreGraphics.CGSize(_flyoutWidth, _sidebarView.Frame.Height));
+		var widthConstraint = _sidebarView.WidthAnchor.ConstraintEqualTo(_flyoutWidth);
+		widthConstraint.Priority = 200; // low priority so user can still resize
+		widthConstraint.Active = true;
 
 		var contentItem = NSSplitViewItem.CreateContentList(contentVC);
 		contentItem.TitlebarSeparatorStyle = NSTitlebarSeparatorStyle.Line;
