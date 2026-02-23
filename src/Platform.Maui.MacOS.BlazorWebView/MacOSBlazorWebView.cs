@@ -20,6 +20,8 @@ public class MacOSBlazorWebView : View
     /// through the full WKWebView bounds, but scroll indicators and the initial
     /// content position are inset by these amounts.
     /// Uses WKWebView.ObscuredContentInsets (macOS 14+).
+    /// When left at default (all zeros), the top inset is automatically calculated
+    /// from the toolbar/titlebar height if the window uses FullSizeContentView.
     /// </summary>
     public static readonly BindableProperty ContentInsetsProperty =
         BindableProperty.Create(nameof(ContentInsets), typeof(Thickness), typeof(MacOSBlazorWebView), default(Thickness));
@@ -39,6 +41,8 @@ public class MacOSBlazorWebView : View
     /// <summary>
     /// Gets or sets the content insets (top, left, bottom, right) for the WebView.
     /// Content scrolls through the full bounds but is visually inset by these amounts.
+    /// When left at default (all zeros), the top inset is automatically calculated
+    /// from the toolbar/titlebar height.
     /// </summary>
     public Thickness ContentInsets
     {

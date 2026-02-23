@@ -171,13 +171,58 @@ public partial class BlazorWebViewHandler : MacOSViewHandler<MacOSBlazorWebView,
             return;
 
         var insets = view.ContentInsets;
-
-        // Skip if all insets are zero (default)
-        if (insets.Top == 0 && insets.Left == 0 && insets.Bottom == 0 && insets.Right == 0)
-            return;
-
         var wkWebView = handler.PlatformView;
 
+        // If insets are all zero, auto-calculate from toolbar height when the window is available
+        if (insets.Top == 0 && insets.Left == 0 && insets.Bottom == 0 && insets.Right == 0)
+        {
+            ApplyAutoContentInsets(wkWebView);
+            return;
+        }
+
+        ApplyContentInsets(wkWebView, insets);
+    }
+
+    static void ApplyAutoContentInsets(WKWebView wkWebView)
+    {
+        var window = wkWebView.Window;
+        if (window == null)
+        {
+            // View isn't in a window yet — observe until it is
+            wkWebView.AddObserver(new ContentInsetsWindowObserver(wkWebView),
+                new NSString("window"), NSKeyValueObservingOptions.New, IntPtr.Zero);
+            return;
+        }
+
+        if (!window.StyleMask.HasFlag(NSWindowStyle.FullSizeContentView))
+            return;
+
+        var toolbarHeight = window.Frame.Height - window.ContentLayoutRect.Height;
+        if (toolbarHeight <= 0)
+            return;
+
+        ApplyContentInsets(wkWebView, new Thickness(0, toolbarHeight, 0, 0));
+    }
+
+    sealed class ContentInsetsWindowObserver : NSObject
+    {
+        readonly WKWebView _webView;
+
+        public ContentInsetsWindowObserver(WKWebView webView) => _webView = webView;
+
+        public override void ObserveValue(NSString keyPath, NSObject ofObject,
+            NSDictionary change, IntPtr context)
+        {
+            if (_webView.Window != null)
+            {
+                _webView.RemoveObserver(this, new NSString("window"));
+                ApplyAutoContentInsets(_webView);
+            }
+        }
+    }
+
+    static void ApplyContentInsets(WKWebView wkWebView, Thickness insets)
+    {
         // Use objc_msgSend to call setObscuredContentInsets: directly (macOS 14+)
         var selector = new ObjCRuntime.Selector("setObscuredContentInsets:");
         if (wkWebView.RespondsToSelector(selector))
