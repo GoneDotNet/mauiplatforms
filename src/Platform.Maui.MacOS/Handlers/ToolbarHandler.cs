@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using Foundation;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Platform.MacOS;
 using AppKit;
 
 namespace Microsoft.Maui.Platform.MacOS.Handlers;
@@ -13,20 +14,52 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
 {
     const string ToolbarIdPrefix = "MauiToolbar_";
     const string ItemIdPrefix = "MauiToolbarItem_";
+    const string SidebarItemIdPrefix = "MauiSidebarItem_";
     const string FlexibleSpaceId = "NSToolbarFlexibleSpaceItem";
+    const string FixedSpaceId = "NSToolbarSpaceItem";
+    const string SeparatorId = "NSToolbarSeparatorItem";
     const string SidebarToggleId = "MauiSidebarToggle";
+    const string TrackingSeparatorId = "MauiTrackingSeparator";
     const string BackButtonId = "MauiBackButton";
     const string TitleId = "MauiTitle";
+    const string SearchId = "MauiSearchItem";
+    const string MenuIdPrefix = "MauiMenu_";
+    const string GroupIdPrefix = "MauiGroup_";
+    const string ShareId = "MauiShareItem";
+    const string PopUpIdPrefix = "MauiPopUp_";
+    const nint SidebarItemTagOffset = 100000;
     static int _toolbarCounter;
+
+    static string SystemItemIdentifier(SystemItemKind kind) => kind switch
+    {
+        SystemItemKind.ToggleSidebar => NSToolbar.NSToolbarToggleSidebarItemIdentifier,
+        SystemItemKind.ToggleInspector => NSToolbar.NSToolbarToggleInspectorItemIdentifier,
+        SystemItemKind.CloudSharing => NSToolbar.NSToolbarCloudSharingItemIdentifier,
+        SystemItemKind.Print => NSToolbar.NSToolbarPrintItemIdentifier,
+        SystemItemKind.ShowColors => NSToolbar.NSToolbarShowColorsItemIdentifier,
+        SystemItemKind.ShowFonts => NSToolbar.NSToolbarShowFontsItemIdentifier,
+        SystemItemKind.WritingTools => NSToolbar.NSToolbarWritingToolsItemIdentifier,
+        SystemItemKind.InspectorTrackingSeparator => NSToolbar.NSToolbarInspectorTrackingSeparatorItemIdentifier,
+        _ => NSToolbar.NSToolbarFlexibleSpaceItemIdentifier,
+    };
 
     NSWindow? _window;
     NSToolbar? _toolbar;
     readonly List<ToolbarItem> _items = new();
+    readonly List<ToolbarItem> _sidebarItems = new();
     readonly List<string> _itemIdentifiers = new();
     Page? _currentPage;
     FlyoutPage? _flyoutPage;
     NavigationPage? _navigationPage;
     Shell? _shell;
+    NSSplitView? _splitView;
+    MacOSSearchToolbarItem? _searchItem;
+    NSSearchToolbarItem? _nativeSearchItem;
+    readonly List<MacOSMenuToolbarItem> _menuItems = new();
+    readonly List<MacOSToolbarItemGroup> _groupItems = new();
+    MacOSShareToolbarItem? _shareItem;
+    readonly List<MacOSPopUpToolbarItem> _popUpItems = new();
+    bool _isRefreshing;
 
     public void AttachToWindow(NSWindow window)
     {
@@ -39,6 +72,15 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             AllowsUserCustomization = false,
         };
         _window.Toolbar = _toolbar;
+    }
+
+    /// <summary>
+    /// Sets the split view used by NSTrackingSeparatorToolbarItem to align the
+    /// toolbar divider with the sidebar/content divider.
+    /// </summary>
+    public void SetSplitView(NSSplitView? splitView)
+    {
+        _splitView = splitView;
     }
 
     public void SetPage(Page? page)
@@ -114,6 +156,8 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     {
         foreach (var item in _items)
             item.PropertyChanged -= OnToolbarItemPropertyChanged;
+        foreach (var item in _sidebarItems)
+            item.PropertyChanged -= OnToolbarItemPropertyChanged;
     }
 
     bool ShouldShowBackButton()
@@ -159,41 +203,378 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
 
     void RefreshToolbar(IList<ToolbarItem>? toolbarItems)
     {
+        if (_isRefreshing) return;
+        _isRefreshing = true;
+        try
+        {
         UnsubscribeCommands();
         _items.Clear();
+        _sidebarItems.Clear();
         _itemIdentifiers.Clear();
+        CleanupSearchItem();
 
-        // Left side: sidebar toggle, then back button
-        if (_flyoutPage != null)
-            _itemIdentifiers.Add(SidebarToggleId);
+        bool hasBackButton = ShouldShowBackButton();
+        bool hasFlyoutToggle = _flyoutPage != null;
 
-        if (ShouldShowBackButton())
-            _itemIdentifiers.Add(BackButtonId);
+        // Resolve search item — can come from explicit layout or page-level property
+        _searchItem = _currentPage != null ? MacOSToolbar.GetSearchItem(_currentPage) : null;
 
-        // Flexible space between left nav items and centered title
-        _itemIdentifiers.Add(FlexibleSpaceId);
+        // Resolve other special toolbar items from page-level properties
+        _menuItems.Clear();
+        _groupItems.Clear();
+        _popUpItems.Clear();
+        _shareItem = _currentPage != null ? MacOSToolbar.GetShareItem(_currentPage) : null;
+        var menuItems = _currentPage != null ? MacOSToolbar.GetMenuItems(_currentPage) : null;
+        if (menuItems != null) _menuItems.AddRange(menuItems);
+        var groupItems = _currentPage != null ? MacOSToolbar.GetItemGroups(_currentPage) : null;
+        if (groupItems != null) _groupItems.AddRange(groupItems);
+        var popUpItems = _currentPage != null ? MacOSToolbar.GetPopUpItems(_currentPage) : null;
+        if (popUpItems != null) _popUpItems.AddRange(popUpItems);
 
-        // Centered title (since window title is hidden)
-        _itemIdentifiers.Add(TitleId);
+        // Check for explicit layouts on the current page
+        var explicitSidebarLayout = _currentPage != null
+            ? MacOSToolbar.GetSidebarLayout(_currentPage) : null;
+        bool hasExplicitSidebarLayout = explicitSidebarLayout != null && explicitSidebarLayout.Count > 0;
 
-        // Flexible space between title and right-side toolbar items
-        _itemIdentifiers.Add(FlexibleSpaceId);
+        var explicitContentLayout = _currentPage != null
+            ? MacOSToolbar.GetContentLayout(_currentPage) : null;
+        bool hasExplicitContentLayout = explicitContentLayout != null && explicitContentLayout.Count > 0;
+
+        // Partition toolbar items into sidebar and content
+        var contentItems = new List<ToolbarItem>();
+        var sidebarLeading = new List<ToolbarItem>();
+        var sidebarCenter = new List<ToolbarItem>();
+        var sidebarTrailing = new List<ToolbarItem>();
+
+        // Collect items referenced by explicit layouts for quick lookup
+        HashSet<ToolbarItem> explicitItems = new();
+        if (hasExplicitSidebarLayout)
+        {
+            foreach (var entry in explicitSidebarLayout!)
+            {
+                if (entry is ToolbarItemLayoutRef itemRef)
+                    explicitItems.Add(itemRef.ToolbarItem);
+            }
+        }
+        if (hasExplicitContentLayout)
+        {
+            foreach (var entry in explicitContentLayout!)
+            {
+                if (entry is ToolbarItemLayoutRef itemRef)
+                    explicitItems.Add(itemRef.ToolbarItem);
+            }
+        }
 
         if (toolbarItems != null)
         {
-            int index = 0;
             foreach (var item in toolbarItems)
             {
+                // Skip sentinel items used to trigger refresh
+                if (item.AutomationId == "__MacOSToolbar_Sentinel__")
+                    continue;
+
                 if (item.Order == ToolbarItemOrder.Secondary)
                     continue;
 
-                var id = $"{ItemIdPrefix}{index}";
+                // Items claimed by an explicit layout are handled in the layout walk
+                if (explicitItems.Contains(item))
+                    continue;
+
+                if (hasExplicitSidebarLayout)
+                {
+                    // Explicit sidebar mode: unclaimed items go to content
+                    contentItems.Add(item);
+                }
+                else
+                {
+                    // Convenience mode: partition by Placement property
+                    var placement = MacOSToolbarItem.GetPlacement(item);
+                    switch (placement)
+                    {
+                        case MacOSToolbarItemPlacement.SidebarLeading:
+                            sidebarLeading.Add(item);
+                            break;
+                        case MacOSToolbarItemPlacement.SidebarCenter:
+                            sidebarCenter.Add(item);
+                            break;
+                        case MacOSToolbarItemPlacement.SidebarTrailing:
+                            sidebarTrailing.Add(item);
+                            break;
+                        default:
+                            contentItems.Add(item);
+                            break;
+                    }
+                }
+            }
+        }
+
+        bool hasSpecialItems = _searchItem != null || _menuItems.Count > 0
+            || _groupItems.Count > 0 || _shareItem != null || _popUpItems.Count > 0;
+        bool hasContentItems = contentItems.Count > 0 || hasExplicitContentLayout || hasSpecialItems;
+        bool hasSidebarItems = hasExplicitSidebarLayout
+            || sidebarLeading.Count > 0 || sidebarCenter.Count > 0 || sidebarTrailing.Count > 0;
+        bool hasToolbarItems = hasContentItems || hasSidebarItems;
+
+        // Only show the toolbar if there's meaningful content
+        bool needsToolbar = hasBackButton || hasFlyoutToggle || hasToolbarItems;
+
+        if (!needsToolbar)
+        {
+            // When a sidebar split view controller is active (Shell or FlyoutPage
+            // with UseNativeSidebar), the toolbar must remain attached (even if empty)
+            // for AllowsFullHeightLayout to extend the sidebar under the titlebar.
+            bool hasNativeSidebar = _shell != null
+                || (_flyoutPage != null && MacOSFlyoutPage.GetUseNativeSidebar(_flyoutPage));
+
+            if (!hasNativeSidebar)
+            {
+                if (_window?.Toolbar != null)
+                    _window.Toolbar = null;
+                return;
+            }
+
+            // Keep toolbar attached but clear its items — add tracking separator
+            // if we have a split view so the divider aligns
+            if (_window != null && _window.Toolbar == null && _toolbar != null)
+                _window.Toolbar = _toolbar;
+
+            if (_toolbar != null)
+            {
+                while (_toolbar.Items.Length > 0)
+                    _toolbar.RemoveItem(0);
+
+                if (_splitView != null)
+                    _toolbar.InsertItem(TrackingSeparatorId, 0);
+            }
+            return;
+        }
+
+        // === Build toolbar item list ===
+
+        // Sidebar area items (before tracking separator)
+        if (hasFlyoutToggle)
+            _itemIdentifiers.Add(SidebarToggleId);
+
+        if (hasBackButton)
+            _itemIdentifiers.Add(BackButtonId);
+
+        // Sidebar-placed toolbar items
+        int sidebarIdx = 0;
+
+        if (hasExplicitSidebarLayout)
+        {
+            // Explicit layout: walk the layout array and emit items/spacers in order
+            foreach (var entry in explicitSidebarLayout!)
+            {
+                if (entry is ToolbarItemLayoutRef itemRef)
+                {
+                    var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+                    _sidebarItems.Add(itemRef.ToolbarItem);
+                    _itemIdentifiers.Add(id);
+                    itemRef.ToolbarItem.PropertyChanged += OnToolbarItemPropertyChanged;
+                    sidebarIdx++;
+                }
+                else if (entry is SearchLayoutRef)
+                {
+                    _itemIdentifiers.Add(SearchId);
+                }
+                else if (entry is MenuLayoutRef menuRef)
+                {
+                    int mIdx = _menuItems.IndexOf(menuRef.MenuItem);
+                    if (mIdx < 0) { _menuItems.Add(menuRef.MenuItem); mIdx = _menuItems.Count - 1; }
+                    _itemIdentifiers.Add($"{MenuIdPrefix}{mIdx}");
+                }
+                else if (entry is GroupLayoutRef groupRef)
+                {
+                    int gIdx = _groupItems.IndexOf(groupRef.Group);
+                    if (gIdx < 0) { _groupItems.Add(groupRef.Group); gIdx = _groupItems.Count - 1; }
+                    _itemIdentifiers.Add($"{GroupIdPrefix}{gIdx}");
+                }
+                else if (entry is ShareLayoutRef)
+                {
+                    _itemIdentifiers.Add(ShareId);
+                }
+                else if (entry is PopUpLayoutRef popUpRef)
+                {
+                    int pIdx = _popUpItems.IndexOf(popUpRef.PopUpItem);
+                    if (pIdx < 0) { _popUpItems.Add(popUpRef.PopUpItem); pIdx = _popUpItems.Count - 1; }
+                    _itemIdentifiers.Add($"{PopUpIdPrefix}{pIdx}");
+                }
+                else if (entry is SystemItemLayoutItem sysItem)
+                {
+                    _itemIdentifiers.Add(SystemItemIdentifier(sysItem.Kind));
+                }
+                else if (entry is SpacerLayoutItem spacer)
+                {
+                    _itemIdentifiers.Add(spacer.Kind switch
+                    {
+                        SpacerKind.Flexible => FlexibleSpaceId,
+                        SpacerKind.Fixed => FixedSpaceId,
+                        SpacerKind.Separator => SeparatorId,
+                        _ => FlexibleSpaceId,
+                    });
+                }
+            }
+        }
+        else
+        {
+            // Convenience mode: [Leading] <flex> [Center] <flex> [Trailing]
+            foreach (var item in sidebarLeading)
+            {
+                var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+                _sidebarItems.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                sidebarIdx++;
+            }
+
+            if (sidebarLeading.Count > 0 && (sidebarCenter.Count > 0 || sidebarTrailing.Count > 0))
+                _itemIdentifiers.Add(FlexibleSpaceId);
+            else if (sidebarLeading.Count == 0 && sidebarCenter.Count > 0)
+                _itemIdentifiers.Add(FlexibleSpaceId);
+
+            foreach (var item in sidebarCenter)
+            {
+                var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+                _sidebarItems.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                sidebarIdx++;
+            }
+
+            if (sidebarCenter.Count > 0 && sidebarTrailing.Count > 0)
+                _itemIdentifiers.Add(FlexibleSpaceId);
+            else if (sidebarCenter.Count == 0 && sidebarLeading.Count == 0 && sidebarTrailing.Count > 0)
+                _itemIdentifiers.Add(FlexibleSpaceId);
+
+            foreach (var item in sidebarTrailing)
+            {
+                var id = $"{SidebarItemIdPrefix}{sidebarIdx}";
+                _sidebarItems.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                sidebarIdx++;
+            }
+
+            // Search item in sidebar (convenience mode — only when placed in sidebar)
+            if (_searchItem != null && _searchItem.Placement != MacOSToolbarItemPlacement.Content)
+                _itemIdentifiers.Add(SearchId);
+        }
+
+        // Tracking separator — divides sidebar area from content area
+        if (_splitView != null)
+            _itemIdentifiers.Add(TrackingSeparatorId);
+
+        // Content area items (after tracking separator)
+        if (hasExplicitContentLayout)
+        {
+            // Explicit content layout: walk the layout array
+            int contentIdx = 0;
+            foreach (var entry in explicitContentLayout!)
+            {
+                if (entry is ToolbarItemLayoutRef itemRef)
+                {
+                    var id = $"{ItemIdPrefix}{contentIdx}";
+                    _items.Add(itemRef.ToolbarItem);
+                    _itemIdentifiers.Add(id);
+                    itemRef.ToolbarItem.PropertyChanged += OnToolbarItemPropertyChanged;
+                    contentIdx++;
+                }
+                else if (entry is SearchLayoutRef)
+                {
+                    _itemIdentifiers.Add(SearchId);
+                }
+                else if (entry is MenuLayoutRef menuRef)
+                {
+                    int mIdx = _menuItems.IndexOf(menuRef.MenuItem);
+                    if (mIdx < 0) { _menuItems.Add(menuRef.MenuItem); mIdx = _menuItems.Count - 1; }
+                    _itemIdentifiers.Add($"{MenuIdPrefix}{mIdx}");
+                }
+                else if (entry is GroupLayoutRef groupRef)
+                {
+                    int gIdx = _groupItems.IndexOf(groupRef.Group);
+                    if (gIdx < 0) { _groupItems.Add(groupRef.Group); gIdx = _groupItems.Count - 1; }
+                    _itemIdentifiers.Add($"{GroupIdPrefix}{gIdx}");
+                }
+                else if (entry is ShareLayoutRef)
+                {
+                    _itemIdentifiers.Add(ShareId);
+                }
+                else if (entry is PopUpLayoutRef popUpRef)
+                {
+                    int pIdx = _popUpItems.IndexOf(popUpRef.PopUpItem);
+                    if (pIdx < 0) { _popUpItems.Add(popUpRef.PopUpItem); pIdx = _popUpItems.Count - 1; }
+                    _itemIdentifiers.Add($"{PopUpIdPrefix}{pIdx}");
+                }
+                else if (entry is TitleLayoutItem)
+                {
+                    _itemIdentifiers.Add(TitleId);
+                }
+                else if (entry is SystemItemLayoutItem sysItem)
+                {
+                    _itemIdentifiers.Add(SystemItemIdentifier(sysItem.Kind));
+                }
+                else if (entry is SpacerLayoutItem spacer)
+                {
+                    _itemIdentifiers.Add(spacer.Kind switch
+                    {
+                        SpacerKind.Flexible => FlexibleSpaceId,
+                        SpacerKind.Fixed => FixedSpaceId,
+                        SpacerKind.Separator => SeparatorId,
+                        _ => FlexibleSpaceId,
+                    });
+                }
+            }
+
+            // Append any remaining unclaimed content items after the explicit layout
+            foreach (var item in contentItems)
+            {
+                var id = $"{ItemIdPrefix}{contentIdx}";
                 _items.Add(item);
                 _itemIdentifiers.Add(id);
                 item.PropertyChanged += OnToolbarItemPropertyChanged;
-                index++;
+                contentIdx++;
             }
         }
+        else
+        {
+            // Default content layout: [flex] [title] [flex] [items...]
+            _itemIdentifiers.Add(FlexibleSpaceId);
+            _itemIdentifiers.Add(TitleId);
+            _itemIdentifiers.Add(FlexibleSpaceId);
+
+            int contentIdx = 0;
+            foreach (var item in contentItems)
+            {
+                var id = $"{ItemIdPrefix}{contentIdx}";
+                _items.Add(item);
+                _itemIdentifiers.Add(id);
+                item.PropertyChanged += OnToolbarItemPropertyChanged;
+                contentIdx++;
+            }
+
+            // Search item in content area (convenience mode — only when placed in content)
+            if (_searchItem != null && _searchItem.Placement == MacOSToolbarItemPlacement.Content)
+                _itemIdentifiers.Add(SearchId);
+
+            // Other special items in content area (convenience mode)
+            for (int mi = 0; mi < _menuItems.Count; mi++)
+                if (_menuItems[mi].Placement == MacOSToolbarItemPlacement.Content)
+                    _itemIdentifiers.Add($"{MenuIdPrefix}{mi}");
+            for (int gi = 0; gi < _groupItems.Count; gi++)
+                if (_groupItems[gi].Placement == MacOSToolbarItemPlacement.Content)
+                    _itemIdentifiers.Add($"{GroupIdPrefix}{gi}");
+            if (_shareItem != null && _shareItem.Placement == MacOSToolbarItemPlacement.Content)
+                _itemIdentifiers.Add(ShareId);
+            for (int pi = 0; pi < _popUpItems.Count; pi++)
+                if (_popUpItems[pi].Placement == MacOSToolbarItemPlacement.Content)
+                    _itemIdentifiers.Add($"{PopUpIdPrefix}{pi}");
+        }
+
+
+        // Attach toolbar if not already attached
+        if (_window != null && _window.Toolbar == null && _toolbar != null)
+            _window.Toolbar = _toolbar;
 
         // Force NSToolbar to reload by removing and re-inserting items
         if (_toolbar != null)
@@ -203,6 +584,11 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
 
             for (int i = 0; i < _itemIdentifiers.Count; i++)
                 _toolbar.InsertItem(_itemIdentifiers[i], i);
+        }
+        }
+        finally
+        {
+            _isRefreshing = false;
         }
     }
 
@@ -216,6 +602,13 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
     [Export("toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:")]
     public NSToolbarItem ToolbarItemForIdentifier(NSToolbar toolbar, string itemIdentifier, bool willBeInserted)
     {
+        // Tracking separator — divides sidebar area from content area
+        if (itemIdentifier == TrackingSeparatorId && _splitView != null)
+        {
+            return NSTrackingSeparatorToolbarItem.GetTrackingSeparatorToolbar(
+                TrackingSeparatorId, _splitView, 0);
+        }
+
         // Sidebar toggle button (hamburger menu)
         if (itemIdentifier == SidebarToggleId)
         {
@@ -303,38 +696,126 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
             return nsItem;
         }
 
+        // Native search toolbar item
+        if (itemIdentifier == SearchId && _searchItem != null)
+        {
+            return CreateSearchToolbarItem();
+        }
+
+        // Menu toolbar items
+        if (itemIdentifier.StartsWith(MenuIdPrefix))
+        {
+            var indexStr = itemIdentifier.Substring(MenuIdPrefix.Length);
+            if (int.TryParse(indexStr, out int mIdx) && mIdx >= 0 && mIdx < _menuItems.Count)
+                return CreateMenuToolbarItem(itemIdentifier, _menuItems[mIdx]);
+        }
+
+        // Group toolbar items (segmented control)
+        if (itemIdentifier.StartsWith(GroupIdPrefix))
+        {
+            var indexStr = itemIdentifier.Substring(GroupIdPrefix.Length);
+            if (int.TryParse(indexStr, out int gIdx) && gIdx >= 0 && gIdx < _groupItems.Count)
+                return CreateGroupToolbarItem(itemIdentifier, _groupItems[gIdx]);
+        }
+
+        // Share toolbar item
+        if (itemIdentifier == ShareId && _shareItem != null)
+        {
+            return CreateShareToolbarItem(itemIdentifier);
+        }
+
+        // PopUp toolbar items
+        if (itemIdentifier.StartsWith(PopUpIdPrefix))
+        {
+            var indexStr = itemIdentifier.Substring(PopUpIdPrefix.Length);
+            if (int.TryParse(indexStr, out int pIdx) && pIdx >= 0 && pIdx < _popUpItems.Count)
+                return CreatePopUpToolbarItem(itemIdentifier, _popUpItems[pIdx]);
+        }
+
+        if (itemIdentifier.StartsWith(SidebarItemIdPrefix))
+        {
+            var indexStr = itemIdentifier.Substring(SidebarItemIdPrefix.Length);
+            if (int.TryParse(indexStr, out int sIdx) && sIdx >= 0 && sIdx < _sidebarItems.Count)
+            {
+                var mauiItem = _sidebarItems[sIdx];
+                return CreateToolbarButton(itemIdentifier, mauiItem, sIdx);
+            }
+        }
+
         if (itemIdentifier.StartsWith(ItemIdPrefix))
         {
             var indexStr = itemIdentifier.Substring(ItemIdPrefix.Length);
             if (int.TryParse(indexStr, out int index) && index >= 0 && index < _items.Count)
             {
                 var mauiItem = _items[index];
-                var nsItem = new NSToolbarItem(itemIdentifier)
-                {
-                    Label = mauiItem.Text ?? string.Empty,
-                    PaletteLabel = mauiItem.Text ?? string.Empty,
-                    ToolTip = mauiItem.Text ?? string.Empty,
-                    Enabled = mauiItem.IsEnabled,
-                    Target = this,
-                    Action = new ObjCRuntime.Selector("toolbarItemClicked:"),
-                    Tag = index,
-                };
-
-                var button = new NSButton
-                {
-                    Title = mauiItem.Text ?? string.Empty,
-                    BezelStyle = NSBezelStyle.TexturedRounded,
-                    Tag = index,
-                    Target = this,
-                    Action = new ObjCRuntime.Selector("toolbarItemClicked:"),
-                };
-                nsItem.View = button;
-
-                return nsItem;
+                return CreateToolbarButton(itemIdentifier, mauiItem, index);
             }
         }
 
         return new NSToolbarItem(itemIdentifier);
+    }
+
+    NSToolbarItem CreateToolbarButton(string identifier, ToolbarItem mauiItem, int tag)
+    {
+        // Use a tag offset to distinguish sidebar items from content items
+        nint effectiveTag = identifier.StartsWith(SidebarItemIdPrefix) ? tag + SidebarItemTagOffset : tag;
+
+        // Read per-item attached properties
+        var toolTipOverride = MacOSToolbarItem.GetToolTip(mauiItem);
+        var toolTip = toolTipOverride ?? mauiItem.Text ?? string.Empty;
+
+        var nsItem = new NSToolbarItem(identifier)
+        {
+            Label = mauiItem.Text ?? string.Empty,
+            PaletteLabel = mauiItem.Text ?? string.Empty,
+            ToolTip = toolTip,
+            Enabled = mauiItem.IsEnabled,
+            Target = this,
+            Action = new ObjCRuntime.Selector("toolbarItemClicked:"),
+            Tag = effectiveTag,
+            Bordered = MacOSToolbarItem.GetIsBordered(mauiItem),
+        };
+
+        // Visibility priority
+        var visPriority = MacOSToolbarItem.GetVisibilityPriority(mauiItem);
+        if (visPriority != MacOSToolbarItemVisibilityPriority.Standard)
+            nsItem.VisibilityPriority = (nint)(long)visPriority;
+
+        // Background tint color
+        var tintColor = MacOSToolbarItem.GetBackgroundTintColor(mauiItem);
+        if (tintColor != null)
+            nsItem.BackgroundTintColor = AppKit.NSColor.FromRgba(
+                (nfloat)tintColor.Red, (nfloat)tintColor.Green,
+                (nfloat)tintColor.Blue, (nfloat)tintColor.Alpha);
+
+        var button = new NSButton
+        {
+            BezelStyle = NSBezelStyle.TexturedRounded,
+            Tag = effectiveTag,
+            Target = this,
+            Action = new ObjCRuntime.Selector("toolbarItemClicked:"),
+        };
+
+        // Check for SF Symbol icon via MacOSToolbarItem or IconImageSource
+        var iconSource = mauiItem.IconImageSource;
+        NSImage? image = null;
+        if (iconSource is FileImageSource fileSource && !string.IsNullOrEmpty(fileSource.File))
+            image = NSImage.GetSystemSymbol(fileSource.File, null) ?? new NSImage(fileSource.File);
+
+        if (image != null)
+        {
+            button.Image = image;
+            button.Title = string.Empty;
+            button.ImagePosition = NSCellImagePosition.ImageOnly;
+        }
+        else
+        {
+            button.Title = mauiItem.Text ?? string.Empty;
+        }
+
+        button.SetButtonType(NSButtonType.MomentaryPushIn);
+        nsItem.View = button;
+        return nsItem;
     }
 
     [Export("toolbarAllowedItemIdentifiers:")]
@@ -344,7 +825,17 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         // items added later (e.g., back button appearing after a push navigation)
         var ids = new List<string>(_itemIdentifiers)
         {
-            FlexibleSpaceId, BackButtonId, SidebarToggleId, TitleId,
+            FlexibleSpaceId, FixedSpaceId, SeparatorId,
+            BackButtonId, SidebarToggleId, TitleId, TrackingSeparatorId,
+            SearchId,
+            NSToolbar.NSToolbarToggleSidebarItemIdentifier,
+            NSToolbar.NSToolbarToggleInspectorItemIdentifier,
+            NSToolbar.NSToolbarCloudSharingItemIdentifier,
+            NSToolbar.NSToolbarPrintItemIdentifier,
+            NSToolbar.NSToolbarShowColorsItemIdentifier,
+            NSToolbar.NSToolbarShowFontsItemIdentifier,
+            NSToolbar.NSToolbarWritingToolsItemIdentifier,
+            NSToolbar.NSToolbarInspectorTrackingSeparatorItemIdentifier,
         };
         return ids.Distinct().ToArray();
     }
@@ -364,12 +855,20 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         else if (sender is NSButton button)
             tag = button.Tag;
 
-        if (tag >= 0 && tag < _items.Count)
+        ToolbarItem? mauiItem = null;
+        if (tag >= SidebarItemTagOffset)
         {
-            var mauiItem = _items[(int)tag];
-            if (mauiItem.IsEnabled)
-                ((IMenuItemController)mauiItem).Activate();
+            int sIdx = (int)(tag - SidebarItemTagOffset);
+            if (sIdx >= 0 && sIdx < _sidebarItems.Count)
+                mauiItem = _sidebarItems[sIdx];
         }
+        else if (tag >= 0 && tag < _items.Count)
+        {
+            mauiItem = _items[(int)tag];
+        }
+
+        if (mauiItem != null && mauiItem.IsEnabled)
+            ((IMenuItemController)mauiItem).Activate();
     }
 
     [Export("sidebarToggleClicked:")]
@@ -397,8 +896,293 @@ public class MacOSToolbarManager : NSObject, INSToolbarDelegate
         }
     }
 
+    NSToolbarItem CreateSearchToolbarItem()
+    {
+        var nsSearchItem = new NSSearchToolbarItem(SearchId);
+        _nativeSearchItem = nsSearchItem;
+
+        var searchField = nsSearchItem.SearchField;
+        if (_searchItem != null)
+        {
+            if (!string.IsNullOrEmpty(_searchItem.Placeholder))
+                searchField.PlaceholderString = _searchItem.Placeholder;
+            if (_searchItem.PreferredWidth > 0)
+                nsSearchItem.PreferredWidthForSearchField = (nfloat)_searchItem.PreferredWidth;
+            nsSearchItem.ResignsFirstResponderWithCancel = _searchItem.ResignsFirstResponderWithCancel;
+            if (!string.IsNullOrEmpty(_searchItem.Text))
+                searchField.StringValue = _searchItem.Text;
+        }
+
+        // Subscribe to text changes via NSTextField.Changed notification
+        searchField.Changed += OnSearchFieldTextChanged;
+
+        // Subscribe to search field delegate events
+        searchField.SearchingStarted += OnSearchFieldStarted;
+        searchField.SearchingEnded += OnSearchFieldEnded;
+
+        // Subscribe to Enter/Return via the text field action
+        nsSearchItem.Target = this;
+        nsSearchItem.Action = new ObjCRuntime.Selector("searchItemAction:");
+
+        return nsSearchItem;
+    }
+
+    [Export("searchItemAction:")]
+    void OnSearchItemAction(NSObject sender)
+    {
+        if (_searchItem == null || _nativeSearchItem == null) return;
+        var text = _nativeSearchItem.SearchField.StringValue ?? string.Empty;
+        _searchItem.Text = text;
+        _searchItem.RaiseSearchCommitted(text);
+    }
+
+    void OnSearchFieldTextChanged(object? sender, EventArgs e)
+    {
+        if (_searchItem == null || _nativeSearchItem == null) return;
+        _searchItem.Text = _nativeSearchItem.SearchField.StringValue ?? string.Empty;
+    }
+
+    void OnSearchFieldStarted(object? sender, EventArgs e)
+    {
+        _searchItem?.RaiseSearchStarted();
+    }
+
+    void OnSearchFieldEnded(object? sender, EventArgs e)
+    {
+        _searchItem?.RaiseSearchEnded();
+    }
+
+    void CleanupSearchItem()
+    {
+        if (_nativeSearchItem != null)
+        {
+            _nativeSearchItem.SearchField.Changed -= OnSearchFieldTextChanged;
+            _nativeSearchItem.SearchField.SearchingStarted -= OnSearchFieldStarted;
+            _nativeSearchItem.SearchField.SearchingEnded -= OnSearchFieldEnded;
+            _nativeSearchItem = null;
+        }
+        _searchItem = null;
+    }
+
+    // ── Menu Toolbar Item ──────────────────────────────────────────────
+
+    NSToolbarItem CreateMenuToolbarItem(string identifier, MacOSMenuToolbarItem menuItem)
+    {
+        var nsMenuItem = new NSMenuToolbarItem(identifier)
+        {
+            Label = menuItem.Text ?? string.Empty,
+            PaletteLabel = menuItem.Text ?? string.Empty,
+            ToolTip = menuItem.Text ?? string.Empty,
+            ShowsIndicator = menuItem.ShowsIndicator,
+        };
+
+        if (!string.IsNullOrEmpty(menuItem.Icon))
+        {
+            var image = NSImage.GetSystemSymbol(menuItem.Icon, null);
+            if (image != null) nsMenuItem.Image = image;
+        }
+
+        nsMenuItem.Menu = BuildNSMenu(menuItem.Items);
+        return nsMenuItem;
+    }
+
+    static NSMenu BuildNSMenu(IList<MacOSMenuItem> items)
+    {
+        var menu = new NSMenu();
+        foreach (var item in items)
+        {
+            if (item.IsSeparator)
+            {
+                menu.AddItem(NSMenuItem.SeparatorItem);
+                continue;
+            }
+
+            var nsItem = new NSMenuItem(item.Text ?? string.Empty);
+            nsItem.Enabled = item.IsEnabled;
+            nsItem.State = item.IsChecked ? NSCellStateValue.On : NSCellStateValue.Off;
+
+            if (!string.IsNullOrEmpty(item.Icon))
+            {
+                var img = NSImage.GetSystemSymbol(item.Icon, null);
+                if (img != null) nsItem.Image = img;
+            }
+
+            if (!string.IsNullOrEmpty(item.KeyEquivalent))
+                nsItem.KeyEquivalent = item.KeyEquivalent;
+
+            // Wire up click via activated handler
+            var capturedItem = item;
+            nsItem.Activated += (s, e) =>
+            {
+                capturedItem.RaiseClicked();
+                if (capturedItem.Command?.CanExecute(capturedItem.CommandParameter) == true)
+                    capturedItem.Command.Execute(capturedItem.CommandParameter);
+            };
+
+            if (item.SubItems.Count > 0)
+                nsItem.Submenu = BuildNSMenu(item.SubItems);
+
+            menu.AddItem(nsItem);
+        }
+        return menu;
+    }
+
+    // ── Group Toolbar Item (Segmented Control) ─────────────────────────
+
+    NSToolbarItem CreateGroupToolbarItem(string identifier, MacOSToolbarItemGroup group)
+    {
+        var titles = new string[group.Segments.Count];
+        var images = new NSImage?[group.Segments.Count];
+        var labels = new string[group.Segments.Count];
+        bool hasImages = false;
+
+        for (int i = 0; i < group.Segments.Count; i++)
+        {
+            var seg = group.Segments[i];
+            titles[i] = seg.Text ?? string.Empty;
+            labels[i] = seg.Label ?? seg.Text ?? string.Empty;
+            if (!string.IsNullOrEmpty(seg.Icon))
+            {
+                images[i] = NSImage.GetSystemSymbol(seg.Icon, null);
+                if (images[i] != null) hasImages = true;
+            }
+        }
+
+        var selMode = group.SelectionMode switch
+        {
+            MacOSToolbarGroupSelectionMode.SelectOne => NSToolbarItemGroupSelectionMode.SelectOne,
+            MacOSToolbarGroupSelectionMode.SelectAny => NSToolbarItemGroupSelectionMode.SelectAny,
+            MacOSToolbarGroupSelectionMode.Momentary => NSToolbarItemGroupSelectionMode.Momentary,
+            _ => NSToolbarItemGroupSelectionMode.SelectOne,
+        };
+
+        NSToolbarItemGroup nsGroup;
+        if (hasImages)
+        {
+            var validImages = images.Select(img => img ?? new NSImage()).ToArray();
+            nsGroup = NSToolbarItemGroup.Create(identifier, validImages, selMode, labels, this,
+                new ObjCRuntime.Selector("groupItemClicked:"));
+        }
+        else
+        {
+            nsGroup = NSToolbarItemGroup.Create(identifier, titles, selMode, labels, this,
+                new ObjCRuntime.Selector("groupItemClicked:"));
+        }
+
+        nsGroup.Label = group.Label ?? string.Empty;
+        nsGroup.PaletteLabel = group.Label ?? string.Empty;
+
+        // Set representation
+        nsGroup.ControlRepresentation = group.Representation switch
+        {
+            MacOSToolbarGroupRepresentation.Expanded => NSToolbarItemGroupControlRepresentation.Expanded,
+            MacOSToolbarGroupRepresentation.Collapsed => NSToolbarItemGroupControlRepresentation.Collapsed,
+            _ => NSToolbarItemGroupControlRepresentation.Automatic,
+        };
+
+        // Set initial selection
+        if (group.SelectionMode == MacOSToolbarGroupSelectionMode.SelectOne && group.SelectedIndex >= 0)
+            nsGroup.SelectedIndex = group.SelectedIndex;
+
+        return nsGroup;
+    }
+
+    [Export("groupItemClicked:")]
+    void OnGroupItemClicked(NSObject sender)
+    {
+        // Find which group was clicked by checking the sender's identifier
+        if (sender is NSToolbarItemGroup nsGroup)
+        {
+            var identifier = nsGroup.Identifier;
+            if (identifier.StartsWith(GroupIdPrefix) &&
+                int.TryParse(identifier.Substring(GroupIdPrefix.Length), out int gIdx) &&
+                gIdx >= 0 && gIdx < _groupItems.Count)
+            {
+                var group = _groupItems[gIdx];
+                var selected = new bool[group.Segments.Count];
+                for (int i = 0; i < group.Segments.Count; i++)
+                    selected[i] = nsGroup.GetSelected((nint)i);
+                group.SelectedIndex = (int)nsGroup.SelectedIndex;
+                group.RaiseSelectionChanged((int)nsGroup.SelectedIndex, selected);
+            }
+        }
+    }
+
+    // ── Share Toolbar Item ─────────────────────────────────────────────
+
+    NSToolbarItem CreateShareToolbarItem(string identifier)
+    {
+        var nsShare = new NSSharingServicePickerToolbarItem(identifier)
+        {
+            Label = _shareItem?.Label ?? "Share",
+            PaletteLabel = _shareItem?.Label ?? "Share",
+        };
+
+        if (_shareItem != null)
+            nsShare.WeakDelegate = new SharingDelegate(_shareItem);
+
+        return nsShare;
+    }
+
+    class SharingDelegate : NSObject, INSSharingServicePickerToolbarItemDelegate
+    {
+        readonly MacOSShareToolbarItem _item;
+        public SharingDelegate(MacOSShareToolbarItem item) => _item = item;
+
+        public NSObject[] GetItems(NSSharingServicePickerToolbarItem pickerToolbarItem)
+        {
+            if (_item.ShareItemsProvider == null) return Array.Empty<NSObject>();
+            var objects = _item.ShareItemsProvider();
+            return objects.Select<object, NSObject>(o => o switch
+            {
+                string s => new Foundation.NSString(s),
+                Uri u => new Foundation.NSUrl(u.AbsoluteUri),
+                NSObject ns => ns,
+                _ => new Foundation.NSString(o.ToString() ?? string.Empty),
+            }).ToArray();
+        }
+    }
+
+    // ── PopUp Toolbar Item ─────────────────────────────────────────────
+
+    NSToolbarItem CreatePopUpToolbarItem(string identifier, MacOSPopUpToolbarItem popUp)
+    {
+        var nsItem = new NSToolbarItem(identifier)
+        {
+            Label = string.Empty,
+            PaletteLabel = "Selection",
+        };
+
+        var button = new NSPopUpButton();
+        button.PullsDown = popUp.PullsDown;
+
+        foreach (var item in popUp.Items)
+            button.AddItem(item);
+
+        if (popUp.SelectedIndex >= 0 && popUp.SelectedIndex < popUp.Items.Count)
+            button.SelectItem(popUp.SelectedIndex);
+
+        if (popUp.Width > 0)
+        {
+            var frame = button.Frame;
+            frame.Width = (nfloat)popUp.Width;
+            button.Frame = frame;
+        }
+
+        var capturedPopUp = popUp;
+        button.Activated += (s, e) =>
+        {
+            capturedPopUp.SelectedIndex = (int)button.IndexOfSelectedItem;
+            capturedPopUp.RaiseSelectionChanged((int)button.IndexOfSelectedItem);
+        };
+
+        nsItem.View = button;
+        return nsItem;
+    }
+
     public void Detach()
     {
+        CleanupSearchItem();
         SetPage(null);
         if (_window != null)
         {

@@ -259,6 +259,9 @@ public partial class NativeSidebarFlyoutPageHandler : MacOSViewHandler<IFlyoutVi
 			[nameof(IFlyoutView.FlyoutWidth)] = MapFlyoutWidth,
 		};
 
+	NSSplitViewController? _splitViewController;
+	NSSplitViewItem? _sidebarSplitItem;
+
 	NSScrollView? _scrollView;
 	NSOutlineView? _outlineView;
 	NSVisualEffectView? _sidebarEffectView;
@@ -277,17 +280,20 @@ public partial class NativeSidebarFlyoutPageHandler : MacOSViewHandler<IFlyoutVi
 	/// </summary>
 	internal bool IsProgrammaticSelection { get; private set; }
 
+	/// <summary>
+	/// Exposes the NSSplitViewController so WindowHandler can set it as the
+	/// window's contentViewController for proper sidebar titlebar integration.
+	/// </summary>
+	internal NSSplitViewController? SplitViewController => _splitViewController;
+
 	FlyoutPage? FlyoutPage => VirtualView as FlyoutPage;
 
 	public NativeSidebarFlyoutPageHandler() : base(Mapper) { }
 
 	protected override NSSplitView CreatePlatformView()
 	{
-		var splitView = new NSSplitView
-		{
-			IsVertical = true,
-			DividerStyle = NSSplitViewDividerStyle.Thin,
-		};
+		bool useNativeSidebar = VirtualView is Microsoft.Maui.Controls.FlyoutPage fp
+			&& MacOSFlyoutPage.GetUseNativeSidebar(fp);
 
 		// NSVisualEffectView with sidebar material for translucent sidebar appearance.
 		// On macOS 26+ linked with SDK 26, AppKit automatically applies the
@@ -334,6 +340,41 @@ public partial class NativeSidebarFlyoutPageHandler : MacOSViewHandler<IFlyoutVi
 
 		_detailContainer = new NSView { WantsLayer = true };
 
+		if (useNativeSidebar)
+		{
+			// Use NSSplitViewController for inset sidebar with vibrancy and titlebar integration
+			_splitViewController = new NSSplitViewController();
+
+			var sidebarVC = new NSViewController { View = _sidebarEffectView };
+			var contentVC = new NSViewController { View = _detailContainer };
+
+			_sidebarSplitItem = NSSplitViewItem.CreateSidebar(sidebarVC);
+			_sidebarSplitItem.MinimumThickness = (nfloat)_flyoutWidth;
+			_sidebarSplitItem.MaximumThickness = (nfloat)_flyoutWidth;
+			_sidebarSplitItem.CanCollapse = false;
+			_sidebarSplitItem.AllowsFullHeightLayout = true;
+			_sidebarSplitItem.TitlebarSeparatorStyle = NSTitlebarSeparatorStyle.None;
+
+			var contentItem = NSSplitViewItem.CreateContentList(contentVC);
+			contentItem.TitlebarSeparatorStyle = NSTitlebarSeparatorStyle.Line;
+
+			_splitViewController.AddSplitViewItem(_sidebarSplitItem);
+			_splitViewController.AddSplitViewItem(contentItem);
+
+			// Observe detail frame changes for MAUI layout
+			_detailContainer.PostsFrameChangedNotifications = true;
+			Foundation.NSNotificationCenter.DefaultCenter.AddObserver(
+				NSView.FrameChangedNotification, OnDetailFrameChanged, _detailContainer);
+
+			return _splitViewController.SplitView;
+		}
+
+		var splitView = new NSSplitView
+		{
+			IsVertical = true,
+			DividerStyle = NSSplitViewDividerStyle.Thin,
+		};
+
 		splitView.AddArrangedSubview(_sidebarEffectView);
 		splitView.AddArrangedSubview(_detailContainer);
 
@@ -357,7 +398,29 @@ public partial class NativeSidebarFlyoutPageHandler : MacOSViewHandler<IFlyoutVi
 	{
 		_dataSource = null;
 		_delegate = null;
+		if (_detailContainer != null)
+			Foundation.NSNotificationCenter.DefaultCenter.RemoveObserver(
+				_detailContainer, NSView.FrameChangedNotification, null);
 		base.DisconnectHandler(platformView);
+	}
+
+	void OnDetailFrameChanged(Foundation.NSNotification notification)
+	{
+		if (_currentDetailView == null || _detailContainer == null)
+			return;
+
+		var bounds = _detailContainer.Bounds;
+		if (bounds.Width <= 0 || bounds.Height <= 0)
+			return;
+
+		_currentDetailView.Frame = bounds;
+
+		var detail = VirtualView?.Detail;
+		if (detail != null)
+		{
+			detail.Measure((double)bounds.Width, (double)bounds.Height);
+			detail.Arrange(new Rect(0, 0, (double)bounds.Width, (double)bounds.Height));
+		}
 	}
 
 	void LoadSidebarItems()

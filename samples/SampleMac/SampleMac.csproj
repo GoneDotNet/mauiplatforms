@@ -137,6 +137,9 @@
         <Compile Include="..\Sample\Pages\ThemePage.cs">
             <Link>Pages\ThemePage.cs</Link>
         </Compile>
+        <Compile Include="..\Sample\Pages\ToolbarPage.cs">
+            <Link>Pages\ToolbarPage.cs</Link>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>

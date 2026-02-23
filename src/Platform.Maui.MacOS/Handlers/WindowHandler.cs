@@ -111,6 +111,9 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
             [nameof(IWindow.MinimumHeight)] = MapMinMaxSize,
             [nameof(IWindow.MaximumWidth)] = MapMinMaxSize,
             [nameof(IWindow.MaximumHeight)] = MapMinMaxSize,
+            [MacOSWindow.TitlebarStyleProperty.PropertyName] = MapTitlebarStyle,
+            [MacOSWindow.TitlebarTransparentProperty.PropertyName] = MapTitlebarTransparent,
+            [MacOSWindow.TitleVisibilityProperty.PropertyName] = MapTitleVisibility,
         };
 
     FlippedNSView? _contentContainer;
@@ -173,9 +176,9 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         }
         _windowCascadeOffset++;
 
-        window.ToolbarStyle = NSWindowToolbarStyle.Unified;
-        window.TitleVisibility = NSWindowTitleVisibility.Hidden;
-        window.TitlebarAppearsTransparent = true;
+        window.ToolbarStyle = (NSWindowToolbarStyle)(int)MacOSWindow.GetTitlebarStyle((BindableObject)VirtualView);
+        window.TitleVisibility = (NSWindowTitleVisibility)(int)MacOSWindow.GetTitleVisibility((BindableObject)VirtualView);
+        window.TitlebarAppearsTransparent = MacOSWindow.GetTitlebarTransparent((BindableObject)VirtualView);
 
         // Use a flipped NSView as ContentView so subviews use top-left origin
         _contentContainer = new FlippedNSView();
@@ -214,6 +217,53 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
         var page = window.Content;
         var pageHandler = page.ToHandler(handler.MauiContext);
         var pageView = pageHandler.ToPlatformView();
+
+        Console.WriteLine($"[WindowHandler.MapContent] page={page.GetType().Name}, handler={pageHandler.GetType().Name}");
+
+        // Shell or FlyoutPage with NSSplitViewController: set as window's contentViewController
+        // so the system provides proper sidebar titlebar integration (traffic lights
+        // inside the sidebar, behind-window vibrancy, inset rounded corners).
+        NSSplitViewController? splitVC = null;
+        if (page is Shell && pageHandler is ShellHandler shellHandler)
+            splitVC = shellHandler.SplitViewController;
+        else if (page is FlyoutPage && pageHandler is FlyoutPageHandler flyoutHandler)
+            splitVC = flyoutHandler.PlatformView.SplitViewController;
+        else if (page is FlyoutPage && pageHandler is NativeSidebarFlyoutPageHandler nativeHandler)
+            splitVC = nativeHandler.SplitViewController;
+
+        if (splitVC != null)
+        {
+            // Preserve the window frame — setting contentViewController can resize it
+            var savedFrame = handler.PlatformView.Frame;
+
+            handler.PlatformView.ContentViewController = splitVC;
+
+            // Restore the original window frame
+            handler.PlatformView.SetFrame(savedFrame, true);
+
+            // Sidebar requires Unified toolbar style for proper titlebar integration.
+            if (handler.PlatformView.ToolbarStyle == NSWindowToolbarStyle.Automatic)
+                handler.PlatformView.ToolbarStyle = NSWindowToolbarStyle.Unified;
+
+            // Re-attach the toolbar AFTER setting contentViewController so the system
+            // recalculates titlebar integration with the NSSplitViewController sidebar.
+            var toolbar = handler.PlatformView.Toolbar;
+            handler.PlatformView.Toolbar = null;
+            handler.PlatformView.Toolbar = toolbar;
+
+            // Pass the split view to the toolbar manager for NSTrackingSeparatorToolbarItem
+            handler._toolbarManager?.SetSplitView(splitVC.SplitView);
+
+            // Recreate modal manager with the new content view
+            var contentView = handler.PlatformView.ContentView;
+            if (contentView != null)
+                handler._modalManager = new MacOSModalManager(contentView);
+
+            handler.SubscribeModalEvents(window);
+            handler.ObservePageChanges(page);
+            handler.RefreshToolbar();
+            return;
+        }
 
         if (handler._contentContainer != null)
         {
@@ -398,6 +448,30 @@ public partial class WindowHandler : ElementHandler<IWindow, NSWindow>
             Page page => page,
             _ => null,
         };
+    }
+
+    public static void MapTitlebarStyle(WindowHandler handler, IWindow window)
+    {
+        if (handler.PlatformView == null || window is not BindableObject bo)
+            return;
+
+        handler.PlatformView.ToolbarStyle = (NSWindowToolbarStyle)(int)MacOSWindow.GetTitlebarStyle(bo);
+    }
+
+    public static void MapTitlebarTransparent(WindowHandler handler, IWindow window)
+    {
+        if (handler.PlatformView == null || window is not BindableObject bo)
+            return;
+
+        handler.PlatformView.TitlebarAppearsTransparent = MacOSWindow.GetTitlebarTransparent(bo);
+    }
+
+    public static void MapTitleVisibility(WindowHandler handler, IWindow window)
+    {
+        if (handler.PlatformView == null || window is not BindableObject bo)
+            return;
+
+        handler.PlatformView.TitleVisibility = (NSWindowTitleVisibility)(int)MacOSWindow.GetTitleVisibility(bo);
     }
 
     public static void MapMinMaxSize(WindowHandler handler, IWindow window)
