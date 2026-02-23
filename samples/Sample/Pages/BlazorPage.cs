@@ -15,7 +15,7 @@ public class BlazorPage : ContentPage
 		var blazorWebView = new MacOSBlazorWebView
 		{
 			HostPage = "wwwroot/index.html",
-			ContentInsets = new Thickness(0, 52, 0, 0),
+			// ContentInsets are auto-calculated from toolbar height
 		};
 		blazorWebView.RootComponents.Add(new BlazorRootComponent
 		{
