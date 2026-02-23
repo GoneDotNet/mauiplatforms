@@ -68,5 +68,12 @@ public partial class ApplicationHandler : ElementHandler<IApplication, NSObject>
             AppTheme.Dark => NSAppearance.GetAppearance(NSAppearance.NameDarkAqua),
             _ => null,
         };
+
+        // Defer ThemeChanged to the next runloop iteration so AppKit has time
+        // to update EffectiveAppearance after we clear the override.
+        CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() =>
+        {
+            application.ThemeChanged();
+        });
     }
 }
