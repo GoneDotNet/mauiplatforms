@@ -181,10 +181,19 @@ public partial class BlazorWebViewHandler : MacOSViewHandler<MacOSBlazorWebView,
         if (insets.Top == 0 && insets.Left == 0 && insets.Bottom == 0 && insets.Right == 0)
         {
             ApplyAutoContentInsets(wkWebView);
-            return;
+        }
+        else
+        {
+            ApplyContentInsets(wkWebView, insets);
         }
 
-        ApplyContentInsets(wkWebView, insets);
+        // Setting content insets can cause WKWebView to recreate its scroll pocket
+        // subviews, undoing any prior hiding. Re-apply if HideScrollPocketOverlay is on.
+        if (view.HideScrollPocketOverlay)
+        {
+            CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() =>
+                ApplyScrollPocketVisibility(wkWebView, true));
+        }
     }
 
     static void ApplyAutoContentInsets(WKWebView wkWebView)
@@ -206,6 +215,10 @@ public partial class BlazorWebViewHandler : MacOSViewHandler<MacOSBlazorWebView,
             return;
 
         ApplyContentInsets(wkWebView, new Thickness(0, toolbarHeight, 0, 0));
+
+        // Re-hide scroll pocket after insets change (WKWebView may recreate them)
+        CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() =>
+            ApplyScrollPocketVisibility(wkWebView, true));
     }
 
     sealed class ContentInsetsWindowObserver : NSObject
