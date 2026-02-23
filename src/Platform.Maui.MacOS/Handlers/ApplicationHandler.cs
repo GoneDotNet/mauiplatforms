@@ -10,6 +10,7 @@ public partial class ApplicationHandler : ElementHandler<IApplication, NSObject>
     public static readonly IPropertyMapper<IApplication, ApplicationHandler> Mapper =
         new PropertyMapper<IApplication, ApplicationHandler>(ElementMapper)
         {
+            [nameof(IApplication.UserAppTheme)] = MapAppTheme,
         };
 
     public static readonly CommandMapper<IApplication, ApplicationHandler> CommandMapper =
@@ -55,5 +56,17 @@ public partial class ApplicationHandler : ElementHandler<IApplication, NSObject>
         {
             nsWindow.Close();
         }
+    }
+
+    public static void MapAppTheme(ApplicationHandler handler, IApplication application)
+    {
+        // Override the app-wide appearance to match the requested theme.
+        // Setting Appearance to null reverts to the system default.
+        NSApplication.SharedApplication.Appearance = application.UserAppTheme switch
+        {
+            AppTheme.Light => NSAppearance.GetAppearance(NSAppearance.NameAqua),
+            AppTheme.Dark => NSAppearance.GetAppearance(NSAppearance.NameDarkAqua),
+            _ => null,
+        };
     }
 }

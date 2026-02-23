@@ -24,16 +24,17 @@ class AppInfoImplementation : IAppInfo
     {
         get
         {
-            var app = NSAppearance.CurrentDrawingAppearance?.FindBestMatch(new string[]
+            var appearance = NSApplication.SharedApplication.EffectiveAppearance;
+            var best = appearance?.FindBestMatch(new string[]
             {
                 NSAppearance.NameAqua,
                 NSAppearance.NameDarkAqua
             });
 
-            if (string.IsNullOrEmpty(app))
+            if (string.IsNullOrEmpty(best))
                 return AppTheme.Unspecified;
 
-            return app == NSAppearance.NameDarkAqua ? AppTheme.Dark : AppTheme.Light;
+            return best == NSAppearance.NameDarkAqua ? AppTheme.Dark : AppTheme.Light;
         }
     }
 
