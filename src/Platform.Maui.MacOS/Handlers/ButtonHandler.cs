@@ -1,8 +1,58 @@
 using Microsoft.Maui.Handlers;
 using AppKit;
+using CoreGraphics;
 using Foundation;
 
 namespace Microsoft.Maui.Platform.MacOS.Handlers;
+
+class MauiNSButton : NSButton
+{
+    Thickness _padding;
+
+    public Thickness MauiPadding
+    {
+        get => _padding;
+        set
+        {
+            _padding = value;
+            InvalidateIntrinsicContentSize();
+            NeedsDisplay = true;
+        }
+    }
+
+    public override CGSize IntrinsicContentSize
+    {
+        get
+        {
+            var size = base.IntrinsicContentSize;
+            if (_padding != default)
+            {
+                size.Width += (nfloat)(_padding.Left + _padding.Right);
+                size.Height += (nfloat)(_padding.Top + _padding.Bottom);
+            }
+            return size;
+        }
+    }
+
+    public override void DrawRect(CGRect dirtyRect)
+    {
+        if (_padding != default && !Bordered)
+        {
+            // Inset the drawing frame so cell content (text + image) is padded
+            var paddedFrame = new CGRect(
+                (nfloat)_padding.Left,
+                IsFlipped ? (nfloat)_padding.Top : (nfloat)_padding.Bottom,
+                Bounds.Width - (nfloat)(_padding.Left + _padding.Right),
+                Bounds.Height - (nfloat)(_padding.Top + _padding.Bottom)
+            );
+            Cell.DrawInteriorWithFrame(paddedFrame, this);
+        }
+        else
+        {
+            base.DrawRect(dirtyRect);
+        }
+    }
+}
 
 public partial class ButtonHandler : MacOSViewHandler<IButton, NSButton>
 {
@@ -27,7 +77,7 @@ public partial class ButtonHandler : MacOSViewHandler<IButton, NSButton>
 
     protected override NSButton CreatePlatformView()
     {
-        var button = new NSButton
+        var button = new MauiNSButton
         {
             BezelStyle = NSBezelStyle.Rounded,
             Title = string.Empty,
@@ -137,7 +187,10 @@ public partial class ButtonHandler : MacOSViewHandler<IButton, NSButton>
 
     public static void MapPadding(ButtonHandler handler, IButton button)
     {
-        // NSButton doesn't expose direct padding — handled via bezel insets or attributed title
+        if (handler.PlatformView is MauiNSButton mauiButton && button is IPadding padded)
+        {
+            mauiButton.MauiPadding = padded.Padding;
+        }
     }
 
     public static void MapImageSource(ButtonHandler handler, IButton button)
