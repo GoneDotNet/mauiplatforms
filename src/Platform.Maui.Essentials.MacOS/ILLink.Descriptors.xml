@@ -1,0 +1,3 @@
+<linker>
+  <assembly fullname="Platform.Maui.Essentials.MacOS" preserve="all" />
+</linker>

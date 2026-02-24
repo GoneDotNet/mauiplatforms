@@ -5,10 +5,20 @@
         <RootNamespace>Microsoft.Maui.Platform.MacOS</RootNamespace>
         <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
         <PackageVersion>$(MacOSPackageVersion)</PackageVersion>
+        <!-- Mark assembly as trimmer-compatible but preserve all public API types
+             via the linker descriptor (ILLink.Descriptors.xml). -->
+        <IsTrimmable>true</IsTrimmable>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>
+    </ItemGroup>
+
+    <!-- Linker descriptor: preserve all public API types for AOT/trimming -->
+    <ItemGroup>
+        <EmbeddedResource Include="ILLink.Descriptors.xml">
+            <LogicalName>ILLink.Descriptors.xml</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 
     <!-- Ship build targets with the NuGet package -->
