@@ -7,7 +7,7 @@ namespace Microsoft.Maui.Platform.MacOS.Handlers;
 
 public class EditorNSView : NSScrollView
 {
-    public NSTextView TextView { get; }
+    public PlaceholderNSTextView TextView { get; }
 
     public EditorNSView()
     {
@@ -15,7 +15,7 @@ public class EditorNSView : NSScrollView
         HasHorizontalScroller = false;
         AutohidesScrollers = true;
 
-        TextView = new NSTextView
+        TextView = new PlaceholderNSTextView
         {
             RichText = false,
             VerticallyResizable = true,
@@ -31,20 +31,57 @@ public class EditorNSView : NSScrollView
     {
         get
         {
-            // Compute height from actual text content, matching UITextView behavior.
-            // Empty editors get a single-line default (~36px with system font).
             var tv = TextView;
             if (tv.LayoutManager != null && tv.TextContainer != null)
             {
                 tv.LayoutManager.EnsureLayoutForTextContainer(tv.TextContainer);
                 var usedRect = tv.LayoutManager.GetUsedRect(tv.TextContainer);
                 var textHeight = usedRect.Height;
-                // Add vertical inset/padding
                 var inset = tv.TextContainerInset;
                 var height = Math.Max(textHeight + inset.Height * 2, 36);
                 return new CGSize(NSView.NoIntrinsicMetric, height);
             }
             return new CGSize(NSView.NoIntrinsicMetric, 36);
+        }
+    }
+}
+
+public class PlaceholderNSTextView : NSTextView
+{
+    string? _placeholder;
+
+    public string? PlaceholderText
+    {
+        get => _placeholder;
+        set
+        {
+            _placeholder = value;
+            NeedsDisplay = true;
+        }
+    }
+
+    public override void DrawRect(CGRect dirtyRect)
+    {
+        base.DrawRect(dirtyRect);
+
+        if (!string.IsNullOrEmpty(_placeholder) && string.IsNullOrEmpty(Value))
+        {
+            var attrs = new NSStringAttributes
+            {
+                ForegroundColor = NSColor.Gray,
+                Font = Font ?? NSFont.SystemFontOfSize(NSFont.SystemFontSize),
+            };
+
+            var inset = TextContainerInset;
+            var padding = TextContainer?.LineFragmentPadding ?? 5;
+            var rect = new CGRect(
+                padding + inset.Width,
+                inset.Height,
+                Bounds.Width - padding * 2 - inset.Width * 2,
+                Bounds.Height - inset.Height * 2);
+
+            var nsStr = new NSAttributedString(_placeholder, attrs);
+            nsStr.DrawInRect(rect);
         }
     }
 }
@@ -91,6 +128,7 @@ public class EditorHandler : MacOSViewHandler<IEditor, EditorNSView>
         try
         {
             VirtualView.Text = PlatformView.TextView.Value ?? string.Empty;
+            PlatformView.TextView.NeedsDisplay = true;
         }
         finally
         {
@@ -104,6 +142,7 @@ public class EditorHandler : MacOSViewHandler<IEditor, EditorNSView>
             return;
 
         handler.PlatformView.TextView.Value = editor.Text ?? string.Empty;
+        handler.PlatformView.TextView.NeedsDisplay = true;
     }
 
     public static void MapTextColor(EditorHandler handler, IEditor editor)
@@ -119,11 +158,11 @@ public class EditorHandler : MacOSViewHandler<IEditor, EditorNSView>
 
     public static void MapPlaceholder(EditorHandler handler, IEditor editor)
     {
-        // NSTextView doesn't have built-in placeholder support.
-        // Use the PlaceholderString on the underlying text view's enclosing scroll view or
-        // overlay a label. For now, set the accessibility placeholder.
         if (editor is IPlaceholder placeholder)
+        {
+            handler.PlatformView.TextView.PlaceholderText = placeholder.Placeholder;
             handler.PlatformView.TextView.AccessibilityPlaceholderValue = placeholder.Placeholder;
+        }
     }
 
     public static void MapCharacterSpacing(EditorHandler handler, IEditor editor)

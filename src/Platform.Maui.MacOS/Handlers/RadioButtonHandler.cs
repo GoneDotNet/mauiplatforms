@@ -11,6 +11,7 @@ public partial class RadioButtonHandler : MacOSViewHandler<IRadioButton, NSButto
 			[nameof(IRadioButton.IsChecked)] = MapIsChecked,
 			[nameof(ITextStyle.TextColor)] = MapTextColor,
 			[nameof(IText.Text)] = MapContent,
+			[nameof(IContentView.Content)] = MapContent,
 		};
 
 	bool _updating;
@@ -73,7 +74,25 @@ public partial class RadioButtonHandler : MacOSViewHandler<IRadioButton, NSButto
 
 	public static void MapContent(RadioButtonHandler handler, IRadioButton view)
 	{
-		// RadioButton.Content holds the display text (IText.Text is empty for string content)
-		handler.PlatformView.Title = view.Content?.ToString() ?? string.Empty;
+		handler.PlatformView.Title = ExtractContentText(view) ?? string.Empty;
+	}
+
+	static string? ExtractContentText(IRadioButton view)
+	{
+		var content = view.Content;
+		if (content == null)
+			return null;
+
+		if (content is string s)
+			return s;
+
+		// For View content, try to extract meaningful text instead of showing type name
+		if (content is IText textView)
+			return textView.Text;
+
+		if (content is ILabel label)
+			return label.Text;
+
+		return content.ToString();
 	}
 }

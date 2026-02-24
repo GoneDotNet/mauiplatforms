@@ -21,6 +21,8 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, MauiNSTextField>
             [nameof(ILabel.CharacterSpacing)] = MapCharacterSpacing,
             [nameof(ILabel.Padding)] = MapPadding,
             [nameof(Label.FormattedText)] = MapFormattedText,
+            [nameof(Label.LineHeight)] = MapLineHeight,
+            [nameof(Label.TextType)] = MapTextType,
         };
 
     public LabelHandler() : base(Mapper)
@@ -94,23 +96,135 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, MauiNSTextField>
     static bool IsExplicitSize(double value)
         => !double.IsNaN(value) && value >= 0 && !double.IsPositiveInfinity(value);
 
-    public static void MapText(LabelHandler handler, ILabel label)
+    // Unified attributed text builder — all text-related mappers call this to avoid
+    // conflicts between StringValue, Font, and AttributedStringValue on NSTextField.
+    static void UpdateAttributedText(LabelHandler handler, ILabel label)
     {
         if (label is Label mauiLabel && mauiLabel.FormattedText != null)
-            return; // FormattedText takes precedence
-        handler.PlatformView.StringValue = label.Text ?? string.Empty;
-    }
+            return; // FormattedText handled separately
 
-    public static void MapTextColor(LabelHandler handler, ILabel label)
-    {
+        var pv = handler.PlatformView;
+        var text = label.Text ?? string.Empty;
+
+        // HTML text type — parse HTML into attributed string
+        if (label is Label ml2 && ml2.TextType == TextType.Html)
+        {
+            UpdateHtmlText(handler, label, text);
+            return;
+        }
+
+        var attrs = new NSMutableDictionary();
+
+        // Font
+        attrs[NSStringAttributeKey.Font] = label.Font.ToNSFont();
+
+        // TextColor
         if (label.TextColor != null)
-            handler.PlatformView.TextColor = label.TextColor.ToPlatformColor();
+            attrs[NSStringAttributeKey.ForegroundColor] = label.TextColor.ToPlatformColor();
+
+        // CharacterSpacing
+        if (label.CharacterSpacing != 0)
+            attrs[NSStringAttributeKey.KerningAdjustment] = NSNumber.FromDouble(label.CharacterSpacing);
+
+        // TextDecorations
+        if (label.TextDecorations.HasFlag(TextDecorations.Underline))
+            attrs[NSStringAttributeKey.UnderlineStyle] = NSNumber.FromInt32((int)NSUnderlineStyle.Single);
+        if (label.TextDecorations.HasFlag(TextDecorations.Strikethrough))
+            attrs[NSStringAttributeKey.StrikethroughStyle] = NSNumber.FromInt32((int)NSUnderlineStyle.Single);
+
+        // LineHeight & Alignment via paragraph style
+        var paraStyle = new NSMutableParagraphStyle();
+        paraStyle.Alignment = label.HorizontalTextAlignment switch
+        {
+            TextAlignment.Center => NSTextAlignment.Center,
+            TextAlignment.End => NSTextAlignment.Right,
+            _ => NSTextAlignment.Left,
+        };
+        if (label is Label ml && ml.LineHeight >= 0 && ml.LineHeight != 1)
+            paraStyle.LineHeightMultiple = (nfloat)ml.LineHeight;
+        if (label is Label lbl)
+        {
+            paraStyle.LineBreakMode = lbl.LineBreakMode switch
+            {
+                LineBreakMode.NoWrap => NSLineBreakMode.Clipping,
+                LineBreakMode.CharacterWrap => NSLineBreakMode.CharWrapping,
+                LineBreakMode.HeadTruncation => NSLineBreakMode.TruncatingHead,
+                LineBreakMode.TailTruncation => NSLineBreakMode.TruncatingTail,
+                LineBreakMode.MiddleTruncation => NSLineBreakMode.TruncatingMiddle,
+                _ => NSLineBreakMode.ByWordWrapping,
+            };
+        }
+        attrs[NSStringAttributeKey.ParagraphStyle] = paraStyle;
+
+        pv.AttributedStringValue = new NSAttributedString(text, attrs);
     }
 
-    public static void MapFont(LabelHandler handler, ILabel label)
+    static void UpdateHtmlText(LabelHandler handler, ILabel label, string html)
     {
-        handler.PlatformView.Font = label.Font.ToNSFont();
+        var pv = handler.PlatformView;
+
+        // Wrap HTML with default font styling so the base font matches the label's font
+        var font = label.Font.ToNSFont();
+        var fontSize = font.PointSize;
+        var fontFamily = font.FamilyName ?? "system-ui";
+        var colorCss = "";
+        if (label.TextColor != null)
+        {
+            var c = label.TextColor;
+            colorCss = $"color: rgba({(int)(c.Red * 255)},{(int)(c.Green * 255)},{(int)(c.Blue * 255)},{c.Alpha});";
+        }
+        var styledHtml = $"<div style=\"font-family: '{fontFamily}', system-ui; font-size: {fontSize}px; {colorCss}\">{html}</div>";
+
+        var data = NSData.FromString(styledHtml, NSStringEncoding.UTF8);
+        var options = new NSAttributedStringDocumentAttributes
+        {
+            DocumentType = NSDocumentType.HTML,
+            StringEncoding = NSStringEncoding.UTF8,
+        };
+
+        NSDictionary? resultAttrs;
+        var attrStr = new NSAttributedString(data, options, out resultAttrs);
+        if (attrStr != null)
+        {
+            // Apply paragraph style for alignment and line break mode
+            var mutable = new NSMutableAttributedString(attrStr);
+            var paraStyle = new NSMutableParagraphStyle();
+            paraStyle.Alignment = label.HorizontalTextAlignment switch
+            {
+                TextAlignment.Center => NSTextAlignment.Center,
+                TextAlignment.End => NSTextAlignment.Right,
+                _ => NSTextAlignment.Left,
+            };
+            if (label is Label lbl)
+            {
+                paraStyle.LineBreakMode = lbl.LineBreakMode switch
+                {
+                    LineBreakMode.NoWrap => NSLineBreakMode.Clipping,
+                    LineBreakMode.CharacterWrap => NSLineBreakMode.CharWrapping,
+                    LineBreakMode.HeadTruncation => NSLineBreakMode.TruncatingHead,
+                    LineBreakMode.TailTruncation => NSLineBreakMode.TruncatingTail,
+                    LineBreakMode.MiddleTruncation => NSLineBreakMode.TruncatingMiddle,
+                    _ => NSLineBreakMode.ByWordWrapping,
+                };
+            }
+            var fullRange = new NSRange(0, mutable.Length);
+            mutable.AddAttribute(NSStringAttributeKey.ParagraphStyle, paraStyle, fullRange);
+            pv.AttributedStringValue = mutable;
+        }
+        else
+        {
+            // Fallback to plain text if HTML parsing fails
+            pv.StringValue = html;
+        }
     }
+
+    public static void MapText(LabelHandler handler, ILabel label) => UpdateAttributedText(handler, label);
+    public static void MapTextType(LabelHandler handler, ILabel label) => UpdateAttributedText(handler, label);
+    public static void MapTextColor(LabelHandler handler, ILabel label) => UpdateAttributedText(handler, label);
+    public static void MapFont(LabelHandler handler, ILabel label) => UpdateAttributedText(handler, label);
+    public static void MapCharacterSpacing(LabelHandler handler, ILabel label) => UpdateAttributedText(handler, label);
+    public static void MapTextDecorations(LabelHandler handler, ILabel label) => UpdateAttributedText(handler, label);
+    public static void MapLineHeight(LabelHandler handler, ILabel label) => UpdateAttributedText(handler, label);
 
     public static void MapHorizontalTextAlignment(LabelHandler handler, ILabel label)
     {
@@ -120,6 +234,7 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, MauiNSTextField>
             TextAlignment.End => NSTextAlignment.Right,
             _ => NSTextAlignment.Left,
         };
+        UpdateAttributedText(handler, label);
     }
 
     public static void MapLineBreakMode(LabelHandler handler, ILabel label)
@@ -142,23 +257,6 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, MauiNSTextField>
     {
         if (label is Label mauiLabel)
             handler.PlatformView.MaximumNumberOfLines = mauiLabel.MaxLines;
-    }
-
-    public static void MapTextDecorations(LabelHandler handler, ILabel label)
-    {
-        ApplyTextDecorations(handler.PlatformView, label.TextDecorations);
-    }
-
-    public static void MapCharacterSpacing(LabelHandler handler, ILabel label)
-    {
-        if (label.CharacterSpacing != 0)
-        {
-            var text = handler.PlatformView.StringValue ?? string.Empty;
-            var attrStr = new NSMutableAttributedString(text);
-            attrStr.AddAttribute(NSStringAttributeKey.KerningAdjustment,
-                NSNumber.FromDouble(label.CharacterSpacing), new NSRange(0, text.Length));
-            handler.PlatformView.AttributedStringValue = attrStr;
-        }
     }
 
     public static void MapPadding(LabelHandler handler, ILabel label)
@@ -212,6 +310,14 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, MauiNSTextField>
             if (span.TextDecorations.HasFlag(TextDecorations.Strikethrough))
                 attrs[NSStringAttributeKey.StrikethroughStyle] = NSNumber.FromInt32((int)NSUnderlineStyle.Single);
 
+            // LineHeight
+            if (span.LineHeight >= 0)
+            {
+                var paraStyle = new NSMutableParagraphStyle();
+                paraStyle.LineHeightMultiple = (nfloat)span.LineHeight;
+                attrs[NSStringAttributeKey.ParagraphStyle] = paraStyle;
+            }
+
             var spanStr = new NSAttributedString(text, attrs);
             attributed.Append(spanStr);
         }
@@ -236,26 +342,6 @@ public partial class LabelHandler : MacOSViewHandler<ILabel, MauiNSTextField>
             nsFont = manager.ConvertFont(nsFont, NSFontTraitMask.Italic) ?? nsFont;
 
         return nsFont;
-    }
-
-    static void ApplyTextDecorations(NSTextField textField, TextDecorations decorations)
-    {
-        var text = textField.StringValue ?? string.Empty;
-        if (string.IsNullOrEmpty(text))
-            return;
-
-        var attrStr = new NSMutableAttributedString(text);
-        var range = new NSRange(0, text.Length);
-
-        if (decorations.HasFlag(TextDecorations.Underline))
-            attrStr.AddAttribute(NSStringAttributeKey.UnderlineStyle,
-                NSNumber.FromInt32((int)NSUnderlineStyle.Single), range);
-
-        if (decorations.HasFlag(TextDecorations.Strikethrough))
-            attrStr.AddAttribute(NSStringAttributeKey.StrikethroughStyle,
-                NSNumber.FromInt32((int)NSUnderlineStyle.Single), range);
-
-        textField.AttributedStringValue = attrStr;
     }
 }
 

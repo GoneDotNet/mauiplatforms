@@ -136,8 +136,24 @@ public partial class ImageHandler : MacOSViewHandler<IImage, NSImageView>
                 extensions.Add(alt);
         }
 
-        // Subdirectories to try: root first, then Images/ (where MAUI puts resources)
-        string?[] subdirs = [null, "Images"];
+        // Subdirectories to try: root first, then Images/ and any child dirs
+        var subdirs = new List<string?> { null, "Images" };
+
+        // Discover nested subdirectories under Images/ (e.g. Images/toolbox/)
+        var resourcePath = NSBundle.MainBundle.ResourcePath;
+        if (resourcePath != null)
+        {
+            var imagesDir = System.IO.Path.Combine(resourcePath, "Images");
+            if (System.IO.Directory.Exists(imagesDir))
+            {
+                foreach (var dir in System.IO.Directory.GetDirectories(imagesDir, "*", System.IO.SearchOption.AllDirectories))
+                {
+                    var rel = System.IO.Path.GetRelativePath(resourcePath, dir);
+                    if (!subdirs.Contains(rel))
+                        subdirs.Add(rel);
+                }
+            }
+        }
 
         foreach (var subdir in subdirs)
         {
