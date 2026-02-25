@@ -7,6 +7,7 @@ namespace Microsoft.Maui.Platform.MacOS.Handlers;
 
 class MauiNSButton : NSButton
 {
+    static readonly Thickness DefaultNonBorderedPadding = new Thickness(8, 4, 8, 4);
     Thickness _padding;
 
     public Thickness MauiPadding
@@ -20,15 +21,30 @@ class MauiNSButton : NSButton
         }
     }
 
+    Thickness EffectivePadding
+    {
+        get
+        {
+            if (_padding != default)
+                return _padding;
+            // When Bordered=false (custom background), native bezel padding is lost;
+            // apply a default so content (especially images) doesn't sit flush at edges
+            if (!Bordered)
+                return DefaultNonBorderedPadding;
+            return default;
+        }
+    }
+
     public override CGSize IntrinsicContentSize
     {
         get
         {
             var size = base.IntrinsicContentSize;
-            if (_padding != default)
+            var pad = EffectivePadding;
+            if (pad != default)
             {
-                size.Width += (nfloat)(_padding.Left + _padding.Right);
-                size.Height += (nfloat)(_padding.Top + _padding.Bottom);
+                size.Width += (nfloat)(pad.Left + pad.Right);
+                size.Height += (nfloat)(pad.Top + pad.Bottom);
             }
             return size;
         }
@@ -36,14 +52,15 @@ class MauiNSButton : NSButton
 
     public override void DrawRect(CGRect dirtyRect)
     {
-        if (_padding != default && !Bordered)
+        var pad = EffectivePadding;
+        if (pad != default && !Bordered)
         {
             // Inset the drawing frame so cell content (text + image) is padded
             var paddedFrame = new CGRect(
-                (nfloat)_padding.Left,
-                IsFlipped ? (nfloat)_padding.Top : (nfloat)_padding.Bottom,
-                Bounds.Width - (nfloat)(_padding.Left + _padding.Right),
-                Bounds.Height - (nfloat)(_padding.Top + _padding.Bottom)
+                (nfloat)pad.Left,
+                IsFlipped ? (nfloat)pad.Top : (nfloat)pad.Bottom,
+                Bounds.Width - (nfloat)(pad.Left + pad.Right),
+                Bounds.Height - (nfloat)(pad.Top + pad.Bottom)
             );
             Cell.DrawInteriorWithFrame(paddedFrame, this);
         }
@@ -145,16 +162,35 @@ public partial class ButtonHandler : MacOSViewHandler<IButton, NSButton>
 
     public static void MapBackground(ButtonHandler handler, IButton button)
     {
-        if (button.Background is Graphics.SolidPaint solidPaint && solidPaint.Color != null)
+        var wasBordered = handler.PlatformView.Bordered;
+
+        // Extract color from background paint or BackgroundColor
+        Graphics.Color? bgColor = null;
+        if (button.Background is Graphics.SolidPaint solidPaint)
+            bgColor = solidPaint.Color;
+
+        // Fallback: check BackgroundColor directly (handles SolidColorBrush / ImmutableBrush)
+        if (bgColor == null && button is Microsoft.Maui.Controls.Button mauiButton && mauiButton.BackgroundColor != null)
+            bgColor = mauiButton.BackgroundColor;
+
+        if (bgColor != null)
         {
             handler.PlatformView.WantsLayer = true;
             handler.PlatformView.Bordered = false;
-            handler.PlatformView.Layer!.BackgroundColor = solidPaint.Color.ToPlatformColor().CGColor;
+            handler.PlatformView.Layer!.BackgroundColor = bgColor.ToPlatformColor().CGColor;
         }
         else
         {
             handler.PlatformView.Bordered = true;
             handler.PlatformView.BezelStyle = NSBezelStyle.Rounded;
+        }
+
+        // Bordered state affects default padding — invalidate both native and MAUI layout
+        if (wasBordered != handler.PlatformView.Bordered)
+        {
+            handler.PlatformView.InvalidateIntrinsicContentSize();
+            handler.PlatformView.NeedsDisplay = true;
+            handler.VirtualView?.InvalidateMeasure();
         }
     }
 

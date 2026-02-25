@@ -51,8 +51,16 @@ public class MacOSContainerView : NSView
     {
         if (InterceptChildHitTesting)
         {
-            // Return this view (not a child) if the point is inside our bounds,
-            // so our gesture recognizers receive the event.
+            // Let the normal hit test find the deepest child first
+            var child = base.HitTest(point);
+
+            // If the hit lands inside an NSScrollView (or is one), let it through
+            // so scroll wheel events work correctly
+            if (child != null && IsInsideScrollView(child))
+                return child;
+
+            // Otherwise intercept: return this view so our gesture recognizers
+            // receive the event
             var local = ConvertPointFromView(point, Superview);
             if (Bounds.Contains(local))
                 return this;
@@ -63,6 +71,18 @@ public class MacOSContainerView : NSView
             return null;
 
         return base.HitTest(point);
+    }
+
+    static bool IsInsideScrollView(NSView view)
+    {
+        var current = view;
+        while (current != null)
+        {
+            if (current is NSScrollView)
+                return true;
+            current = current.Superview;
+        }
+        return false;
     }
 
     bool ShouldApplySafeArea()
