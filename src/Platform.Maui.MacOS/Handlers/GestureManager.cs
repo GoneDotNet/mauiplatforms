@@ -139,9 +139,7 @@ internal class MacOSTapGestureRecognizer : NSClickGestureRecognizer
     [Foundation.Export("handleTap:")]
     void HandleTap(NSGestureRecognizer recognizer)
     {
-        _tapGesture.Command?.Execute(_tapGesture.CommandParameter);
-
-        // TapGestureRecognizer.SendTapped is internal in MAUI — invoke via reflection
+        // SendTapped internally calls Command.Execute, so do NOT call it separately.
         var sendTapped = typeof(TapGestureRecognizer).GetMethod(
             "SendTapped", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         if (sendTapped != null)
@@ -152,6 +150,11 @@ internal class MacOSTapGestureRecognizer : NSClickGestureRecognizer
                 sendTapped.Invoke(_tapGesture, new object?[] { parent });
             else if (parameters.Length == 2)
                 sendTapped.Invoke(_tapGesture, new object?[] { parent, null });
+        }
+        else
+        {
+            // Fallback if SendTapped is not found
+            _tapGesture.Command?.Execute(_tapGesture.CommandParameter);
         }
     }
 }
