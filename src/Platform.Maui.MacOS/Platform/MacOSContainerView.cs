@@ -54,9 +54,11 @@ public class MacOSContainerView : NSView
             // Let the normal hit test find the deepest child first
             var child = base.HitTest(point);
 
-            // If the hit lands inside an NSScrollView (or is one), let it through
-            // so scroll wheel events work correctly
-            if (child != null && IsInsideScrollView(child))
+            // If the hit lands inside an NSScrollView that is a descendant of this
+            // container, let it through so scroll wheel events work correctly.
+            // Don't bypass interception if the NSScrollView is an ancestor (e.g.
+            // CollectionView cells inside a scroll view still need tap interception).
+            if (child != null && child != this && IsInsideDescendantScrollView(child, this))
                 return child;
 
             // Otherwise intercept: return this view so our gesture recognizers
@@ -73,10 +75,15 @@ public class MacOSContainerView : NSView
         return base.HitTest(point);
     }
 
-    static bool IsInsideScrollView(NSView view)
+    /// <summary>
+    /// Check if child is inside an NSScrollView that is a descendant of container.
+    /// Walks from child up to container; returns true only if an NSScrollView is found
+    /// between them (not above container).
+    /// </summary>
+    static bool IsInsideDescendantScrollView(NSView child, NSView container)
     {
-        var current = view;
-        while (current != null)
+        var current = child;
+        while (current != null && current != container)
         {
             if (current is NSScrollView)
                 return true;

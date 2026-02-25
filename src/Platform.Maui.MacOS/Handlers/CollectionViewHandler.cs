@@ -996,11 +996,16 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
 
     void AddSelectionGesture(NSView platformView, object item, int flatIndex)
     {
-        // Remove existing click recognizers to avoid duplicates
+        // Remove only our own selection click recognizers to avoid duplicates.
+        // Do NOT remove MacOSTapGestureRecognizer instances — those are MAUI
+        // TapGestureRecognizers from the DataTemplate and must be preserved.
         if (platformView.GestureRecognizers is { Length: > 0 })
         {
             foreach (var g in platformView.GestureRecognizers.OfType<NSClickGestureRecognizer>().ToArray())
-                platformView.RemoveGestureRecognizer(g);
+            {
+                if (g is not MacOSTapGestureRecognizer)
+                    platformView.RemoveGestureRecognizer(g);
+            }
         }
 
         var clickRecognizer = new NSClickGestureRecognizer(() =>
