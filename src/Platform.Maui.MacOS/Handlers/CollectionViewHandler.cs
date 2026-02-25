@@ -1048,6 +1048,12 @@ public partial class CollectionViewHandler : MacOSViewHandler<CollectionView, NS
                 selectable.SelectedItems = selectedItems;
             }
         });
+
+        // Allow simultaneous recognition only with MacOSTapGestureRecognizer
+        // so MAUI TapGestureRecognizers on the same view also fire.
+        clickRecognizer.ShouldRecognizeSimultaneously = (self, other) =>
+            other is MacOSTapGestureRecognizer;
+
         platformView.AddGestureRecognizer(clickRecognizer);
 
         // Apply initial selection visual if already selected
