@@ -43,10 +43,18 @@ internal class FlippedNSView : NSView
         if (size.Width <= 0 || size.Height <= 0)
             return;
 
-        if (ContentView != null && ContentView.TryGetTarget(out var content))
+        try
         {
-            content.Measure((double)size.Width, (double)size.Height);
-            content.Arrange(new Graphics.Rect(0, 0, (double)size.Width, (double)size.Height));
+            if (ContentView != null && ContentView.TryGetTarget(out var content))
+            {
+                content.Measure((double)size.Width, (double)size.Height);
+                content.Arrange(new Graphics.Rect(0, 0, (double)size.Width, (double)size.Height));
+            }
+        }
+        catch (Exception ex)
+        {
+            // AppKit retries Layout() infinitely when exceptions propagate
+            Console.Error.WriteLine($"[WindowContentView.RelayoutContent] {ex}");
         }
     }
 

@@ -42,10 +42,14 @@ public class MauiNSTextField : NSTextField
         {
             SyncInsets();
             var size = base.IntrinsicContentSize;
+            // Guard against NaN — AppKit throws NSInvalidArgumentException
+            if (nfloat.IsNaN(size.Width) || nfloat.IsNaN(size.Height))
+                return size;
             // Add insets to intrinsic size (width may be -1 for wrapping labels)
             if (size.Width >= 0)
                 size.Width += (nfloat)TextInsets.Left + (nfloat)TextInsets.Right;
-            size.Height += (nfloat)TextInsets.Top + (nfloat)TextInsets.Bottom;
+            if (size.Height >= 0)
+                size.Height += (nfloat)TextInsets.Top + (nfloat)TextInsets.Bottom;
             return size;
         }
     }

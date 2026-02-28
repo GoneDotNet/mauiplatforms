@@ -149,35 +149,43 @@ public class MacOSContainerView : NSView
         if (bounds.Width <= 0 || bounds.Height <= 0)
             return;
 
-        var applySafeArea = ShouldApplySafeArea();
-        var measureWidth = (double)bounds.Width;
-        var measureHeight = (double)bounds.Height;
-
-        if (applySafeArea)
+        try
         {
-            var insets = GetSafeAreaInsets();
-            measureWidth -= (double)(insets.Left + insets.Right);
-            measureHeight -= (double)(insets.Top + insets.Bottom);
+            var applySafeArea = ShouldApplySafeArea();
+            var measureWidth = (double)bounds.Width;
+            var measureHeight = (double)bounds.Height;
+
+            if (applySafeArea)
+            {
+                var insets = GetSafeAreaInsets();
+                measureWidth -= (double)(insets.Left + insets.Right);
+                measureHeight -= (double)(insets.Top + insets.Bottom);
+            }
+
+            // Measure pass must happen before arrange — MAUI's layout engine
+            // requires IView.Measure() to be called (which sets DesiredSize) before
+            // IView.Arrange() can produce correct results.
+            CrossPlatformMeasure?.Invoke(measureWidth, measureHeight);
+
+            if (applySafeArea)
+            {
+                var insets = GetSafeAreaInsets();
+                CrossPlatformArrange?.Invoke(new Graphics.Rect(
+                    (double)insets.Left, (double)insets.Top,
+                    measureWidth, measureHeight));
+            }
+            else
+            {
+                CrossPlatformArrange?.Invoke(new Graphics.Rect(
+                    0, 0,
+                    bounds.Width,
+                    bounds.Height));
+            }
         }
-
-        // Measure pass must happen before arrange — MAUI's layout engine
-        // requires IView.Measure() to be called (which sets DesiredSize) before
-        // IView.Arrange() can produce correct results.
-        CrossPlatformMeasure?.Invoke(measureWidth, measureHeight);
-
-        if (applySafeArea)
+        catch (Exception ex)
         {
-            var insets = GetSafeAreaInsets();
-            CrossPlatformArrange?.Invoke(new Graphics.Rect(
-                (double)insets.Left, (double)insets.Top,
-                measureWidth, measureHeight));
-        }
-        else
-        {
-            CrossPlatformArrange?.Invoke(new Graphics.Rect(
-                0, 0,
-                bounds.Width,
-                bounds.Height));
+            // AppKit retries Layout() infinitely when exceptions propagate
+            Console.Error.WriteLine($"[MacOSContainerView.Layout] {ex}");
         }
     }
 

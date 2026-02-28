@@ -39,13 +39,40 @@ class MauiNSButton : NSButton
     {
         get
         {
-            var size = base.IntrinsicContentSize;
+            // Compute content size without calling base.IntrinsicContentSize,
+            // which can trigger recursive auto-layout in AppKit → NaN → exception.
+            var size = AttributedTitle?.Size ?? CGSize.Empty;
+            if (Image != null)
+            {
+                var imgSize = Image.Size;
+                size.Width += imgSize.Width;
+                if (imgSize.Height > size.Height)
+                    size.Height = imgSize.Height;
+                if (AttributedTitle?.Length > 0)
+                    size.Width += 4; // spacing between image and title
+            }
+
+            // If no content, return NoIntrinsicMetric
+            if (size.Width <= 0 && size.Height <= 0)
+                return new CGSize(NSView.NoIntrinsicMetric, NSView.NoIntrinsicMetric);
+
             var pad = EffectivePadding;
-            if (pad != default)
+            if (Bordered)
+            {
+                // Bordered buttons have native bezel chrome — add standard bezel padding
+                size.Width += 20;
+                size.Height += 8;
+            }
+            else if (pad != default)
             {
                 size.Width += (nfloat)(pad.Left + pad.Right);
                 size.Height += (nfloat)(pad.Top + pad.Bottom);
             }
+
+            // Ensure minimum touch target
+            if (size.Height < 21)
+                size.Height = 21;
+
             return size;
         }
     }

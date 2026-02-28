@@ -37,8 +37,16 @@ public class BorderNSView : NSView
         if (bounds.Width <= 0 || bounds.Height <= 0)
             return;
 
-        CrossPlatformMeasure?.Invoke((double)bounds.Width, (double)bounds.Height);
-        CrossPlatformArrange?.Invoke(new Rect(0, 0, (double)bounds.Width, (double)bounds.Height));
+        try
+        {
+            CrossPlatformMeasure?.Invoke((double)bounds.Width, (double)bounds.Height);
+            CrossPlatformArrange?.Invoke(new Rect(0, 0, (double)bounds.Width, (double)bounds.Height));
+        }
+        catch (Exception ex)
+        {
+            // AppKit retries Layout() infinitely when exceptions propagate
+            Console.Error.WriteLine($"[BorderNSView.Layout] {ex}");
+        }
     }
 }
 
