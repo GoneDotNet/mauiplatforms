@@ -86,6 +86,7 @@ public class EditorHandler : MacOSViewHandler<IEditor, EditorNSView>
             [nameof(ITextInput.IsReadOnly)] = MapIsReadOnly,
             [nameof(ITextAlignment.HorizontalTextAlignment)] = MapHorizontalTextAlignment,
             [nameof(ITextInput.MaxLength)] = MapMaxLength,
+            [nameof(IView.IsEnabled)] = MapIsEnabled,
         };
 
     bool _updating;
@@ -170,6 +171,16 @@ public class EditorHandler : MacOSViewHandler<IEditor, EditorNSView>
     public static void MapIsReadOnly(EditorHandler handler, IEditor editor)
     {
         handler.PlatformView.TextView.Editable = !editor.IsReadOnly;
+    }
+
+    public static new void MapIsEnabled(IViewHandler handler, IView view)
+    {
+        if (handler.PlatformView is EditorNSView editorView)
+        {
+            editorView.TextView.Editable = view.IsEnabled;
+            editorView.TextView.Selectable = view.IsEnabled;
+            editorView.AlphaValue = view.IsEnabled ? 1.0f : 0.5f;
+        }
     }
 
     public static void MapHorizontalTextAlignment(EditorHandler handler, IEditor editor)
