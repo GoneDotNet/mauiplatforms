@@ -80,6 +80,47 @@ public class ControlsPage : ContentPage
 
 					Separator(),
 
+					SectionHeader("Button with Image"),
+					new Button
+					{
+						Text = "Image Left (default)",
+						ImageSource = new FontImageSource { Glyph = "⭐", Size = 12, Color = Colors.Orange },
+						HorizontalOptions = LayoutOptions.Start,
+					},
+					new Button
+					{
+						Text = "Image Right",
+						ImageSource = new FontImageSource { Glyph = "⭐", Size = 12, Color = Colors.Orange },
+						ContentLayout = new Button.ButtonContentLayout(Button.ButtonContentLayout.ImagePosition.Right, 10),
+						HorizontalOptions = LayoutOptions.Start,
+					},
+					new Button
+					{
+						Text = "Image Top",
+						ImageSource = new FontImageSource { Glyph = "⭐", Size = 12, Color = Colors.Orange },
+						ContentLayout = new Button.ButtonContentLayout(Button.ButtonContentLayout.ImagePosition.Top, 6),
+						HorizontalOptions = LayoutOptions.Start,
+					},
+					new Button
+					{
+						Text = "Image Bottom",
+						ImageSource = new FontImageSource { Glyph = "⭐", Size = 12, Color = Colors.Orange },
+						ContentLayout = new Button.ButtonContentLayout(Button.ButtonContentLayout.ImagePosition.Bottom, 6),
+						HorizontalOptions = LayoutOptions.Start,
+					},
+
+					Separator(),
+
+					SectionHeader("ImageButton"),
+					new ImageButton
+					{
+						Source = new FontImageSource { Glyph = "🔔", Size = 24, Color = Colors.CornflowerBlue },
+						WidthRequest = 44,
+						HeightRequest = 44,
+					},
+
+					Separator(),
+
 					SectionHeader("Entry"),
 					entry,
 					entryEcho,

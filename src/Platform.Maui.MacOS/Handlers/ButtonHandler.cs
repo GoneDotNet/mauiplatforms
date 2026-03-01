@@ -204,6 +204,7 @@ public partial class ButtonHandler : MacOSViewHandler<IButton, NSButton>
             [nameof(IButtonStroke.StrokeThickness)] = MapStrokeThickness,
             [nameof(IPadding.Padding)] = MapPadding,
             [nameof(IImage.Source)] = MapImageSource,
+            ["ContentLayout"] = MapContentLayout,
         };
 
     public ButtonHandler() : base(Mapper)
@@ -398,23 +399,52 @@ public partial class ButtonHandler : MacOSViewHandler<IButton, NSButton>
         if (imageButton.Source is IFileImageSource fileSource)
         {
             handler.PlatformView.Image = new AppKit.NSImage(fileSource.File);
-            handler.PlatformView.ImagePosition = NSCellImagePosition.ImageLeft;
         }
         else if (imageButton.Source is IFontImageSource fontSource)
         {
             handler.PlatformView.Image = FontImageSourceHelper.CreateImage(fontSource, handler.MauiContext);
-            handler.PlatformView.ImagePosition = NSCellImagePosition.ImageLeft;
         }
         else if (imageButton.Source is IUriImageSource uriSource)
         {
             _ = LoadButtonImageFromUri(handler, uriSource.Uri);
+            return; // async — position set in callback
         }
         else
         {
             handler.PlatformView.Image = null;
         }
 
+        ApplyImagePosition(handler, button);
         handler.PlatformView.InvalidateIntrinsicContentSize();
+    }
+
+    public static void MapContentLayout(ButtonHandler handler, IButton button)
+    {
+        ApplyImagePosition(handler, button);
+        handler.PlatformView.InvalidateIntrinsicContentSize();
+    }
+
+    static void ApplyImagePosition(ButtonHandler handler, IButton button)
+    {
+        if (handler.PlatformView.Image == null)
+        {
+            handler.PlatformView.ImagePosition = NSCellImagePosition.NoImage;
+            return;
+        }
+
+        var position = NSCellImagePosition.ImageLeft;
+        if (button is Microsoft.Maui.Controls.Button mauiButton)
+        {
+            position = mauiButton.ContentLayout.Position switch
+            {
+                Microsoft.Maui.Controls.Button.ButtonContentLayout.ImagePosition.Left => NSCellImagePosition.ImageLeft,
+                Microsoft.Maui.Controls.Button.ButtonContentLayout.ImagePosition.Right => NSCellImagePosition.ImageRight,
+                Microsoft.Maui.Controls.Button.ButtonContentLayout.ImagePosition.Top => NSCellImagePosition.ImageAbove,
+                Microsoft.Maui.Controls.Button.ButtonContentLayout.ImagePosition.Bottom => NSCellImagePosition.ImageBelow,
+                _ => NSCellImagePosition.ImageLeft,
+            };
+        }
+        handler.PlatformView.ImagePosition = position;
     }
 
     static async Task LoadButtonImageFromUri(ButtonHandler handler, Uri uri)
@@ -425,7 +455,8 @@ public partial class ButtonHandler : MacOSViewHandler<IButton, NSButton>
             var data = await client.GetByteArrayAsync(uri);
             var nsImage = new AppKit.NSImage(Foundation.NSData.FromArray(data));
             handler.PlatformView.Image = nsImage;
-            handler.PlatformView.ImagePosition = NSCellImagePosition.ImageLeft;
+            ApplyImagePosition(handler, handler.VirtualView);
+            handler.PlatformView.InvalidateIntrinsicContentSize();
         }
         catch { }
     }
