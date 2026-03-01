@@ -62,6 +62,10 @@ public partial class ContentViewHandler : MacOSViewHandler<IContentView, MacOSCo
             var platformView = view.ToMacOSPlatform(handler.MauiContext);
             handler.PlatformView.AddSubview(platformView);
         }
+
+        // New content needs measurement and layout
+        handler.PlatformView.InvalidateIntrinsicContentSize();
+        handler.PlatformView.NeedsLayout = true;
     }
 
     public static void MapBackground(ContentViewHandler handler, IContentView contentView)

@@ -67,18 +67,24 @@ public partial class LayoutHandler : MacOSViewHandler<ILayout, MacOSContainerVie
 
         var platformView = child.ToMacOSPlatform(MauiContext);
         PlatformView.AddSubview(platformView);
+        PlatformView.InvalidateIntrinsicContentSize();
+        PlatformView.NeedsLayout = true;
     }
 
     public void Remove(IView child)
     {
         if (child.Handler?.PlatformView is NSView platformView)
             platformView.RemoveFromSuperview();
+        PlatformView.InvalidateIntrinsicContentSize();
+        PlatformView.NeedsLayout = true;
     }
 
     public void Clear()
     {
         foreach (var subview in PlatformView.Subviews)
             subview.RemoveFromSuperview();
+        PlatformView.InvalidateIntrinsicContentSize();
+        PlatformView.NeedsLayout = true;
     }
 
     public void Insert(int index, IView child)
@@ -98,6 +104,8 @@ public partial class LayoutHandler : MacOSViewHandler<ILayout, MacOSContainerVie
         {
             PlatformView.AddSubview(platformView);
         }
+        PlatformView.InvalidateIntrinsicContentSize();
+        PlatformView.NeedsLayout = true;
     }
 
     public void Update(int index, IView child)
@@ -120,6 +128,8 @@ public partial class LayoutHandler : MacOSViewHandler<ILayout, MacOSContainerVie
         {
             PlatformView.AddSubview(platformView);
         }
+        PlatformView.InvalidateIntrinsicContentSize();
+        PlatformView.NeedsLayout = true;
     }
 
     public static void MapBackground(LayoutHandler handler, ILayout layout)

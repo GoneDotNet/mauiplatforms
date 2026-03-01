@@ -208,6 +208,9 @@ public partial class BorderHandler : MacOSViewHandler<IBorderView, BorderNSView>
             var platformView = content.ToMacOSPlatform(handler.MauiContext);
             handler.PlatformView.AddSubview(platformView);
         }
+
+        handler.PlatformView.InvalidateIntrinsicContentSize();
+        handler.PlatformView.NeedsLayout = true;
     }
 
     public static void MapBackground(BorderHandler handler, IBorderView border)
