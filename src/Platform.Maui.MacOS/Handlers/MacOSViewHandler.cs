@@ -47,6 +47,11 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
                 mapper["ToolTipProperties.Text"] = MapToolTip;
                 mapper[nameof(IView.Semantics)] = MapSemantics;
             }
+
+            if (ViewCommandMapper is CommandMapper<IView, IViewHandler> cmdMapper)
+            {
+                cmdMapper[nameof(IView.Focus)] = MapFocus;
+            }
         }
         catch
         {
@@ -438,6 +443,34 @@ public abstract class MacOSViewHandler<TVirtualView, TPlatformView> : ViewHandle
         {
             platformView.Menu = null;
         }
+    }
+
+    static void MapFocus(IViewHandler handler, IView view, object? args)
+    {
+        if (args is not FocusRequest request)
+            return;
+
+        var platformView = handler.PlatformView as NSView;
+        if (platformView == null)
+        {
+            request.TrySetResult(false);
+            return;
+        }
+
+        var window = platformView.Window;
+        if (window == null)
+        {
+            request.TrySetResult(false);
+            return;
+        }
+
+        // EditorNSView wraps an NSTextView inside an NSScrollView —
+        // focus must go to the inner TextView for keyboard input
+        if (platformView is EditorNSView editorView)
+            platformView = editorView.TextView;
+
+        var result = window.MakeFirstResponder(platformView);
+        request.TrySetResult(result);
     }
 
     public override void PlatformArrange(Rect rect)
